@@ -42,7 +42,7 @@ class StringInput(str):
         return instance
 
 
-class BoundedNumber(int):
+class NumberInput(int):
     def __new__(
         cls,
         value,
@@ -114,11 +114,12 @@ def get_type_str(the_type) -> str:
 def annotate_input(
     type_name, default=inspect.Parameter.empty, debug=False
 ) -> tuple[tuple, bool]:
+    has_default = default != inspect.Parameter.empty
     if type_name in ["INT", "FLOAT"]:
         default_value = 0
         if default != inspect.Parameter.empty:
             default_value = default
-            if isinstance(default_value, BoundedNumber):
+            if isinstance(default_value, NumberInput):
                 metadata = {
                     "default": default_value,
                     "display": default_value.display,
@@ -131,7 +132,7 @@ def annotate_input(
                 return (type_name, metadata), False
         if debug:
             print(f"Default value for {type_name} is {default_value}")
-        return (type_name, {"default": default_value, "display": "number"}), False
+        return (type_name, {"default": default_value, "display": "number"}), has_default
     elif type_name in ["STRING"]:
         default_value = default if default != inspect.Parameter.empty else ""
         if isinstance(default_value, Choice):
@@ -141,10 +142,8 @@ def annotate_input(
                 type_name,
                 {"default": default_value, "multiline": default_value.multiline},
             ), False
-        return (type_name, {"default": default_value}), False
-    return (type_name,), default != inspect.Parameter.empty and type_name not in [
-        "BOOLEAN"
-    ]
+        return (type_name, {"default": default_value}), has_default
+    return (type_name,), has_default
 
 
 def infer_input_types_from_annotations(func, debug=False):
@@ -184,6 +183,10 @@ def infer_return_types_from_annotations(func, debug=False):
 
     types_mapped = []
     output_is_list = []
+    
+    if debug:
+        print(return_annotation)
+    
     if origin is tuple:
         for arg in return_args:
             if debug:
@@ -191,9 +194,7 @@ def infer_return_types_from_annotations(func, debug=False):
 
             if get_origin(arg) == list:
                 output_is_list.append(True)
-                list_arg = get_args(arg)[
-                    0
-                ]  # Assuming only one type argument for the list
+                list_arg = get_args(arg)[0]
                 types_mapped.append(ANNOTATION_TO_COMFYUI_TYPE.get(list_arg, None))
             else:
                 output_is_list.append(False)
@@ -205,7 +206,7 @@ def infer_return_types_from_annotations(func, debug=False):
             print(return_args)
         types_mapped.append(ANNOTATION_TO_COMFYUI_TYPE.get(return_args[0], None))
         output_is_list.append(origin is list)
-    else:
+    elif return_annotation is not inspect.Parameter.empty:
         types_mapped.append(ANNOTATION_TO_COMFYUI_TYPE.get(return_annotation, None))
         output_is_list.append(False)
 
@@ -267,6 +268,7 @@ def create_comfy_node(
     category,
     process_function,
     display_name,
+    workflow_name,
     required_inputs,
     optional_inputs,
     input_is_list,
@@ -316,34 +318,28 @@ def create_comfy_node(
             value is not None
         ), f"Value for {key} cannot be None in class_dict for {cname}"
 
-    camel_case = "".join(x.title() for x in cname.split("_"))
     assert (
-        camel_case not in NODE_CLASS_MAPPINGS
-    ), f"Node class '{camel_case} ({cname})' already exists!"
-
-    if not display_name:
-        display_name = " ".join(x.title() for x in cname.split("_"))
+        workflow_name not in NODE_CLASS_MAPPINGS
+    ), f"Node class '{workflow_name} ({cname})' already exists!"
     assert (
         display_name not in NODE_DISPLAY_NAME_MAPPINGS.values()
     ), f"Display name '{display_name}' already exists!"
 
-    node_class = type(camel_case, (object,), class_dict)
+    node_class = type(workflow_name, (object,), class_dict)
 
-    NODE_CLASS_MAPPINGS[camel_case] = node_class
-    NODE_DISPLAY_NAME_MAPPINGS[camel_case] = display_name
+    NODE_CLASS_MAPPINGS[workflow_name] = node_class
+    NODE_DISPLAY_NAME_MAPPINGS[workflow_name] = display_name
 
 
 def ComfyFunc(
     category="default",
     display_name=None,
+    workflow_name=None,
     is_output_node=False,
     validate_inputs=None,
     is_changed=None,
     debug=False):
     def decorator(func):
-        unique_class_name = func.__name__
-        # validator = clone_func(func, _custom_validate)
-
         required_inputs, optional_inputs, input_is_list_map = (
             infer_input_types_from_annotations(func, debug)
         )
@@ -351,7 +347,9 @@ def ComfyFunc(
             func, debug
         )
         
-        input_is_list = any(input_is_list_map.values())
+        if debug:
+            print(return_types)
+ 
 
         @functools.wraps(func)
         def wrapper(**kwargs):
@@ -375,18 +373,31 @@ def ComfyFunc(
             if not isinstance(result, tuple):
                 return (result,)
             return result
+        
 
+        # There's not much point in a node that doesn't have any outputs
+        # and isn't an output itself, so auto-promote in that case.
+        force_output = len(return_types) == 0
+        
+        input_is_list = any(input_is_list_map.values())
+        workflow_name2 = workflow_name if workflow_name else "".join(x.title() for x in func.__name__.split("_"))
+        
+        print(workflow_name, workflow_name2)
+        
+        display_name2 = display_name if display_name else " ".join(x.title() for x in func.__name__.split("_"))
+             
         create_comfy_node(
-            unique_class_name,
+            func.__name__,
             category,
             wrapper,
-            display_name,
+            display_name2,
+            workflow_name2,
             required_inputs,
             optional_inputs,
             input_is_list,
             return_types,
             output_is_list,
-            is_output_node=is_output_node,
+            is_output_node=is_output_node or force_output,
             validate_inputs=validate_inputs,
             is_changed=is_changed,
             debug=debug

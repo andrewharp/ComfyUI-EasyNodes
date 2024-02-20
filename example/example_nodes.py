@@ -1,4 +1,5 @@
-from comfy_annotations import BoundedNumber, ComfyFunc, MaskTensor, StringInput, ImageTensor, Choice
+from random import random
+from comfy_annotations import NumberInput, ComfyFunc, MaskTensor, StringInput, ImageTensor, Choice
 import torch
 
 my_category = "Comfy Annotation Examples"
@@ -7,8 +8,8 @@ my_category = "Comfy Annotation Examples"
 @ComfyFunc(category=my_category)
 def annotated_example(image: ImageTensor, 
                 string_field: str = StringInput("Hello World!", multiline=False),
-                int_field: int = BoundedNumber(0, 0, 4096, 64, "number"), 
-                float_field: float = BoundedNumber(1.0, 0, 10.0, 0.01, 0.001),
+                int_field: int = NumberInput(0, 0, 4096, 64, "number"), 
+                float_field: float = NumberInput(1.0, 0, 10.0, 0.01, 0.001),
              print_to_screen: str = Choice(["enabled", "disabled"])) -> ImageTensor:
     if print_to_screen == "enable":
         print(f"""Your input contains:
@@ -19,6 +20,18 @@ def annotated_example(image: ImageTensor,
     #do some processing on the image, in this example I just invert it
     image = 1.0 - image
     return image  # Internally this gets auto-converted to (image,) for ComfyUI.
+
+
+
+# You can wrap existing functions with ComfyFunc to expose them to ComfyUI as well.
+def another_function(foo: float = 1.0):
+    print("Hello World!")
+
+
+# This will expose another_function to ComfyUI, and automatically turn it into an output node since
+# it doesn't have a return type.
+# As foo has a default value, it is considered optional and this node will run simply by existing.
+ComfyFunc(category=my_category, workflow_name="foobarbaz", is_changed=lambda: random.random(), debug=True)(another_function)
 
 
 # ImageTensors and MaskTensors are both just torch.Tensors, but they are help to differentiate between

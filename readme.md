@@ -19,7 +19,7 @@ That's it! Now your operation is ready for ComfyUI. More example definitions can
 ## Features
 
 - **@ComfyFunc Decorator**: Simplifies the declaration of custom nodes with automatic UI binding based on type annotations. Existing Python functions can be converted to ComfyUI nodes with a simple "@ComfyFunc()"
-- **Type Support**: Includes several custom types (`ImageTensor`, `MaskTensor`, `BoundedNumber`, etc.) to facilitate specific UI controls like sliders, choices, and text inputs.
+- **Type Support**: Includes several custom types (`ImageTensor`, `MaskTensor`, `NumberInput`, etc.) to facilitate specific UI controls like sliders, choices, and text inputs.
 - **Dual purpose**: @ComfyFunc-decorated functions remain regular Python functions too.
 - **Automatic list and tuple handling**: Simply annotate the type as e.g. ```list[torch.Tensor]``` and your function will automatically make sure you get passed a list. It will also auto-tuple your return value for you internally (or leave it alone if you just want to copy your existing code).
 - **Supports most ComyUI node definition features**: validate_input, etc can be specified as parameters to the ComfyFunc decorator.
@@ -56,11 +56,13 @@ To use this module in your ComfyUI project, follow these steps:
     __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
     ```
 
+
 ## Usage
 
 1. **Annotate Functions with @ComfyFunc**: Decorate your processing functions with `@ComfyFunc`. The decorator accepts the following parameters:
    - `category`: Specifies the category under which the node will be listed in ComfyUI. Default is `"ComfyFunc"`.
    - `display_name`: Optionally specifies a human-readable name for the node as it will appear in ComfyUI. If not provided, a name is generated based on the function name.
+   - `workflow_name`: The internal identifier for this node type. If not provides, as name is generated based on the function name.
    - `is_output_node`: maps to ComfyUI's IS_OUTPUT_NODE
    - `validate_inputs`: maps to ComfyUI's VALIDATE_INPUTS
    - `is_changed`: maps to ComfyUI's IS_CHANGED
@@ -68,11 +70,14 @@ To use this module in your ComfyUI project, follow these steps:
 
     Example:
     ```python
+    from comfy_annotations import ComfyFunc, ImageTensor, NumberInput
+
     @ComfyFunc(category="Image Processing",
                display_name="Enhance Image",
-               is_output_node=False,
+               is_output_node=True,  # ComfyUI will always run this node
+               validate_inputs=lambda factor: return factor > 0,
                debug=True)
-    def enhance_image(image: ImageTensor, enhancement_factor: float = 1.0) -> ImageTensor:
+    def enhance_image(image: ImageTensor, factor: NumberInput(0.5, 0, 1, 0.1)) -> ImageTensor:
         # Function implementation
     ```
 
@@ -81,20 +86,20 @@ To use this module in your ComfyUI project, follow these steps:
     Example:
     ```python
     @ComfyFunc(category="Utilities")
-    def combine_lists(list1: list[int], list2: list[int]) -> list[int]:
-        return list1 + list2
+    def add_value(the_list: list[ImageTensor], val: int) -> list[int]:
+        return [img + the_value for img in the_list]
     ```
 
 ### Example Node Definition from ComfyUI's [example_node.py.example](https://github.com/comfyanonymous/ComfyUI/blob/master/custom_nodes/example_node.py.example), converted:
 
 ```python
-from comfy_annotations import ComfyFunc, ImageTensor, MaskTensor, BoundedNumber, Choice, StringInput
+from comfy_annotations import ComfyFunc, ImageTensor, MaskTensor, NumberInput, Choice, StringInput
 
 @ComfyFunc(category="Example")
 def annotated_example(image: ImageTensor, 
                       string_field: str = StringInput("Hello World!", multiline=False),
-                      int_field: int = BoundedNumber(0, 0, 4096, 64, "number"), 
-                      float_field: float = BoundedNumber(1.0, 0, 10.0, 0.01, 0.001),
+                      int_field: int = NumberInput(0, 0, 4096, 64, "number"), 
+                      float_field: float = NumberInput(1.0, 0, 10.0, 0.01, 0.001),
                       print_to_screen: str = Choice(["enabled", "disabled"])) -> ImageTensor:
     """Inverts the input image and prints input parameters based on `print_to_screen` choice."""
     if print_to_screen == "enable":
