@@ -14,7 +14,7 @@ NODE_CLASS_MAPPINGS.update(comfy_annotations.NODE_CLASS_MAPPINGS)
 NODE_DISPLAY_NAME_MAPPINGS(comfy_annotations.NODE_DISPLAY_NAME_MAPPINGS)
 ```
 
-That's it! Now your operation is ready for ComfyUI. (ImageTensor is interchangeable with torch.Tensor, and MaskTensor is just a torch.Tensor mapped to "MASK" for semantic purposes in ComfyUI). More example definitions can be found in 
+That's it! Now your operation is ready for ComfyUI. More example definitions can be found in [example/example_nodes.py](example/example_nodes.py).
 
 ## Features
 
