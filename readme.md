@@ -59,7 +59,7 @@ To use this module in your ComfyUI project, follow these steps:
 ## Usage
 
 1. **Annotate Functions with @ComfyFunc**: Decorate your processing functions with `@ComfyFunc`. The decorator accepts the following parameters:
-   - `category`: Specifies the category under which the node will be listed in ComfyUI. Default is `"default"`.
+   - `category`: Specifies the category under which the node will be listed in ComfyUI. Default is `"ComfyFunc"`.
    - `display_name`: Optionally specifies a human-readable name for the node as it will appear in ComfyUI. If not provided, a name is generated based on the function name.
    - `is_output_node`: maps to ComfyUI's IS_OUTPUT_NODE
    - `validate_inputs`: maps to ComfyUI's VALIDATE_INPUTS
