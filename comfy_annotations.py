@@ -13,7 +13,7 @@ import torch
 import logging
 import sys
 
-default_category = "default"
+default_category = "ComfyFunc"
 
 
 NODE_CLASS_MAPPINGS = {}

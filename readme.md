@@ -1,6 +1,6 @@
-# ComfyUI Custom Node Module
+# ComfyUI Function Annotator
 
-This module provides an annotation @ComfyFunc for defining custom node types in [ComfyUI](https://github.com/comfyanonymous/ComfyUI). It process your function's signature to create the custom node definition required for ComfyUI, streamlining the process considerably. In most cases you can just add a @ComfyFunc("category") annotation to your existing function.
+This module provides an annotation @ComfyFunc to streamline adding custom node types in [ComfyUI](https://github.com/comfyanonymous/ComfyUI). It processes your function's signature to create a wrapped function and custom node definition required for ComfyUI, eliminating all the boilerplate code. In most cases you can just add a @ComfyFunc("category") annotation to your existing function.
 
 ```
 from comfy_annotations import ComfyFunc, ImageTensor, MaskTensor
@@ -50,7 +50,7 @@ To use this module in your ComfyUI project, follow these steps:
     NODE_DISPLAY_NAME_MAPPINGS.update(comfy_annotations.NODE_DISPLAY_NAME_MAPPINGS)
 
     # Set up any non-ComfyFunc node types as needed.
-    # e.g., NODE_CLASS_MAPPINGS.update(example.example_nodes.NODE_CLASS_MAPPINGS) 
+    # NODE_CLASS_MAPPINGS.update(example.example_nodes.NODE_CLASS_MAPPINGS) 
     # NODE_DISPLAY_NAME_MAPPINGS.update(example.example_nodes.NODE_DISPLAY_NAME_MAPPINGS)
 
     __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
@@ -58,11 +58,34 @@ To use this module in your ComfyUI project, follow these steps:
 
 ## Usage
 
-1. **Define Custom Types**: Use provided types (`BoundedNumber`, `Choice`, `StringInput`, etc.) to specify the kind of input your node expects.
-2. **Annotate Functions with @ComfyFunc**: Decorate your processing functions with `@ComfyFunc`, specifying the category and optionally, a display name and whether it's an output node.
-3. **Function Annotations**: Annotate function parameters and return types using the custom types or standard Python types. This information is used to generate the corresponding UI elements automatically.
+1. **Annotate Functions with @ComfyFunc**: Decorate your processing functions with `@ComfyFunc`. The decorator accepts the following parameters:
+   - `category`: Specifies the category under which the node will be listed in ComfyUI. Default is `"default"`.
+   - `display_name`: Optionally specifies a human-readable name for the node as it will appear in ComfyUI. If not provided, a name is generated based on the function name.
+   - `is_output_node`: maps to ComfyUI's IS_OUTPUT_NODE
+   - `validate_inputs`: maps to ComfyUI's VALIDATE_INPUTS
+   - `is_changed`: maps to ComfyUI's IS_CHANGED
+   - `debug`: A boolean that makes this operator print out extra information during its lifecycle.
 
-### Example Node Definitions
+    Example:
+    ```python
+    @ComfyFunc(category="Image Processing",
+               display_name="Enhance Image",
+               is_output_node=False,
+               debug=True)
+    def enhance_image(image: ImageTensor, enhancement_factor: float = 1.0) -> ImageTensor:
+        # Function implementation
+    ```
+
+2. **Annotate your function inputs and outputs**: Fully annotate function parameters and return types, using `list` to wrap types as appropriate. This information is used to generate the fields of the internal class definition `@ComfyFunc` sends to ComfyUI. If you don't annotate the inputs, the input will be treated as a wildcard. If you don't annotate the output, you won't see anything at all in ComfyUI.
+
+    Example:
+    ```python
+    @ComfyFunc(category="Utilities")
+    def combine_lists(list1: list[int], list2: list[int]) -> list[int]:
+        return list1 + list2
+    ```
+
+### Example Node Definition from ComfyUI's [example_node.py.example](https://github.com/comfyanonymous/ComfyUI/blob/master/custom_nodes/example_node.py.example), converted:
 
 ```python
 from comfy_annotations import ComfyFunc, ImageTensor, MaskTensor, BoundedNumber, Choice, StringInput
@@ -82,7 +105,6 @@ def annotated_example(image: ImageTensor,
         """)
     return 1.0 - image
 ```
-
 
 ## Contributing
 
