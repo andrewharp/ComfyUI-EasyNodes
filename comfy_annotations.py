@@ -94,8 +94,7 @@ class MaskTensor(torch.Tensor):
 class AnyType(str):
     def __ne__(self, __value: object) -> bool:
         return False
-any = AnyType("*")
-
+    
 
 _ANNOTATION_TO_COMFYUI_TYPE = {
     torch.Tensor: "IMAGE",
@@ -105,7 +104,7 @@ _ANNOTATION_TO_COMFYUI_TYPE = {
     float: "FLOAT",
     str: "STRING",
     bool: "BOOLEAN",
-    inspect._empty: any,
+    inspect._empty: AnyType("*"),
 }
 
 
