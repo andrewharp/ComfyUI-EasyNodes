@@ -95,6 +95,8 @@ class AnyType(str):
     def __ne__(self, __value: object) -> bool:
         return False
     
+any_type = AnyType("*")
+    
 
 _ANNOTATION_TO_COMFYUI_TYPE = {
     torch.Tensor: "IMAGE",
@@ -104,7 +106,7 @@ _ANNOTATION_TO_COMFYUI_TYPE = {
     float: "FLOAT",
     str: "STRING",
     bool: "BOOLEAN",
-    inspect._empty: AnyType("*"),
+    inspect._empty: any_type,
 }
 
 
@@ -114,18 +116,13 @@ def register_type(cls, name: str):
 
 
 def get_type_str(the_type) -> str:
-    if the_type not in _ANNOTATION_TO_COMFYUI_TYPE:
-        if get_origin(the_type) is list:
-            innner_type = get_type_str(get_args(the_type)[0])
-            # print("=================" + str(get_args(the_type)[0]) + " -> " + str(innner_type))
-            return innner_type
+    if the_type not in _ANNOTATION_TO_COMFYUI_TYPE and get_origin(the_type) is list:
+        return get_type_str(get_args(the_type)[0])
     
     if the_type not in _ANNOTATION_TO_COMFYUI_TYPE and the_type is not inspect._empty:
         logging.warning(f"Type '{the_type}' not registered with ComfyUI, treating as wildcard")
     
-    type_str = _ANNOTATION_TO_COMFYUI_TYPE.get(the_type, "*")
-    # if type_str == "*":
-    #     print("!!!!!!!!! " + str(the_type) + " -> " + str(type_str))
+    type_str = _ANNOTATION_TO_COMFYUI_TYPE.get(the_type, any_type)
     return type_str
 
 
