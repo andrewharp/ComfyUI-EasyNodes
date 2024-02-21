@@ -78,6 +78,7 @@ class NumberInput(int):
         return f"{super().__repr__()} (Min: {self.min_value}, Max: {self.max_value})"
 
 
+# Used for type hinting semantics only.
 class ImageTensor(torch.Tensor):
     def __new__(cls):
         raise TypeError("Do not instantiate this class directly.")
@@ -89,6 +90,13 @@ class MaskTensor(torch.Tensor):
         raise TypeError("Do not instantiate this class directly.")
     
 
+# Made to match any and all other types.
+class AnyType(str):
+    def __ne__(self, __value: object) -> bool:
+        return False
+any = AnyType("*")
+
+
 _ANNOTATION_TO_COMFYUI_TYPE = {
     torch.Tensor: "IMAGE",
     ImageTensor: "IMAGE",
@@ -97,7 +105,7 @@ _ANNOTATION_TO_COMFYUI_TYPE = {
     float: "FLOAT",
     str: "STRING",
     bool: "BOOLEAN",
-    inspect._empty: "*",
+    inspect._empty: any,
 }
 
 
@@ -114,7 +122,7 @@ def get_type_str(the_type) -> str:
             return innner_type
     
     if the_type not in _ANNOTATION_TO_COMFYUI_TYPE and the_type is not inspect._empty:
-        logging.warning(f"Type '{the_type}' not registered with ComfyUI, treating as *")
+        logging.warning(f"Type '{the_type}' not registered with ComfyUI, treating as wildcard")
     
     type_str = _ANNOTATION_TO_COMFYUI_TYPE.get(the_type, "*")
     # if type_str == "*":
