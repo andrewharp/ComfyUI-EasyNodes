@@ -1,15 +1,11 @@
 import functools
-import hashlib
 import inspect
 import logging
-import os
 
 import inspect
-from functools import wraps
-from typing import NewType, get_args, get_origin
+from typing import get_args, get_origin
 import torch
 import logging
-import sys
 import inspect
 
 default_category = "ComfyFunc"
@@ -19,11 +15,7 @@ NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}
 
 
-class AnyType(str):
-    def __ne__(self, __value: object) -> bool:
-        return False
-
-
+# Use as a default str value to show choices to the user.
 class Choice(str):
     def __new__(cls, choices: list[str]):
         instance = super().__new__(cls, choices[0])
@@ -39,6 +31,9 @@ class StringInput(str):
         instance = super().__new__(cls, value)
         instance.multiline = multiline
         return instance
+    
+    def to_dict(self):
+        return {"default": self, "multiline": self.multiline}
 
 
 class NumberInput(int):
@@ -66,18 +61,21 @@ class NumberInput(int):
         instance.step = step
         instance.round = round
         return instance
+    
+    def to_dict(self):
+        metadata = {
+            "default": self,
+            "display": self.display,
+            "min_value": self.min_value,
+            "max_value": self.max_value,
+            "step": self.step,
+            "round": self.round,
+        }
+        metadata = {k: v for k, v in metadata.items() if v is not None}
+        return metadata
 
     def __repr__(self):
         return f"{super().__repr__()} (Min: {self.min_value}, Max: {self.max_value})"
-
-
-PathString = NewType("PathString", str)
-
-
-# Our any instance wants to be a wildcard string
-any_type = AnyType("*")
-
-DEFAULT_CAT = "unspecified"
 
 
 class ImageTensor(torch.Tensor):
@@ -85,12 +83,13 @@ class ImageTensor(torch.Tensor):
         raise TypeError("Do not instantiate this class directly.")
 
 
+# Used for type hinting semantics only.
 class MaskTensor(torch.Tensor):
     def __new__(cls):
         raise TypeError("Do not instantiate this class directly.")
     
 
-ANNOTATION_TO_COMFYUI_TYPE = {
+_ANNOTATION_TO_COMFYUI_TYPE = {
     torch.Tensor: "IMAGE",
     ImageTensor: "IMAGE",
     MaskTensor: "MASK",
@@ -98,19 +97,124 @@ ANNOTATION_TO_COMFYUI_TYPE = {
     float: "FLOAT",
     str: "STRING",
     bool: "BOOLEAN",
-    AnyType: any_type,
+    inspect._empty: "*",
 }
 
 
 def register_type(cls, name: str):
-    ANNOTATION_TO_COMFYUI_TYPE[cls] = name
+    assert cls not in _ANNOTATION_TO_COMFYUI_TYPE, f"Type {cls} already registered."
+    _ANNOTATION_TO_COMFYUI_TYPE[cls] = name
 
 
 def get_type_str(the_type) -> str:
-    return ANNOTATION_TO_COMFYUI_TYPE[the_type]
+    if the_type not in _ANNOTATION_TO_COMFYUI_TYPE:
+        if get_origin(the_type) is list:
+            innner_type = get_type_str(get_args(the_type)[0])
+            # print("=================" + str(get_args(the_type)[0]) + " -> " + str(innner_type))
+            return innner_type
+    
+    if the_type not in _ANNOTATION_TO_COMFYUI_TYPE and the_type is not inspect._empty:
+        logging.warning(f"Type '{the_type}' not registered with ComfyUI, treating as *")
+    
+    type_str = _ANNOTATION_TO_COMFYUI_TYPE.get(the_type, "*")
+    # if type_str == "*":
+    #     print("!!!!!!!!! " + str(the_type) + " -> " + str(type_str))
+    return type_str
 
 
-def annotate_input(
+def ComfyFunc(
+    category="default",
+    display_name=None,
+    workflow_name=None,
+    is_output_node=False,
+    validate_inputs=None,
+    is_changed=None,
+    debug=False):
+    def decorator(func):
+        wrapped_name = func.__qualname__ + "_wrapper"
+        if debug:
+            logger = logging.getLogger(wrapped_name)
+            logger.info("-------------------------------------------------------------------")
+            logger.info(f"Decorating {func.__qualname__}")
+        
+        node_class = _get_node_class(func)
+        
+        is_static = _is_static_method(node_class, func.__name__)
+        is_cls_mth = _is_class_method(node_class, func.__name__)
+        is_member = node_class is not None and not is_static and not is_cls_mth
+                
+        required_inputs, optional_inputs, input_is_list_map = _infer_input_types_from_annotations(func, is_member, debug)
+        
+        if debug:
+            logger.info(func.__name__, "Is static:", is_static, "Is member:", is_member, "Class method:", is_cls_mth)
+            logger.info("Required inputs:", required_inputs)
+            logger.info(required_inputs, optional_inputs, input_is_list_map)
+        
+        return_types, output_is_list = _infer_return_types_from_annotations(func, debug)
+        
+        # There's not much point in a node that doesn't have any outputs
+        # and isn't an output itself, so auto-promote in that case.
+        force_output = len(return_types) == 0
+        name_parts = [x.title() for x in func.__name__.split("_")]
+        input_is_list = any(input_is_list_map.values())
+        
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if debug:
+                logger.info(func.__name__, "wrapper called with", len(args), "args and", len(kwargs), "kwargs. Is cls mth:", is_cls_mth)
+                for i, arg in enumerate(args):
+                    logger.info("arg", i, type(arg))
+                for key, arg in kwargs.items():
+                    logger.info("kwarg", key, type(arg))
+                
+            # For some reason self still gets passed with class methods.
+            if is_cls_mth:
+                args = args[1:]
+            
+            # If the python function didn't annotate it as a list,
+            # but INPUT_TYPES does, then we need to convert make it not a list.
+            if input_is_list:
+                for arg_name in kwargs.keys():
+                    print(arg_name, len(kwargs[arg_name]))
+                    if not input_is_list_map[arg_name]:
+                        assert len(kwargs[arg_name]) == 1
+                        kwargs[arg_name] = kwargs[arg_name][0]
+
+            result = func(*args, **kwargs)
+            if not isinstance(result, tuple):
+                return (result,)
+            return result
+        
+        if node_class is None or is_static:
+            wrapper = staticmethod(wrapper)
+            
+        if is_cls_mth:
+            wrapper = classmethod(wrapper)
+
+        _create_comfy_node(
+            wrapped_name,
+            category,
+            node_class,
+            wrapper,
+            display_name if display_name else " ".join(name_parts),
+            workflow_name if workflow_name else "".join(name_parts),
+            required_inputs,
+            optional_inputs,
+            input_is_list,
+            return_types,
+            output_is_list,
+            is_output_node=is_output_node or force_output,
+            validate_inputs=validate_inputs,
+            is_changed=is_changed,
+            debug=debug
+        )
+
+        return func
+
+    return decorator
+
+
+def _annotate_input(
     type_name, default=inspect.Parameter.empty, debug=False
 ) -> tuple[tuple, bool]:
     has_default = default != inspect.Parameter.empty
@@ -119,16 +223,7 @@ def annotate_input(
         if default != inspect.Parameter.empty:
             default_value = default
             if isinstance(default_value, NumberInput):
-                metadata = {
-                    "default": default_value,
-                    "display": default_value.display,
-                    "min_value": default_value.min_value,
-                    "max_value": default_value.max_value,
-                    "step": default_value.step,
-                    "round": default_value.round,
-                }
-                metadata = {k: v for k, v in metadata.items() if v is not None}
-                return (type_name, metadata), False
+                return (type_name, default_value.to_dict()), False
         if debug:
             print(f"Default value for {type_name} is {default_value}")
         return (type_name, {"default": default_value, "display": "number"}), has_default
@@ -137,15 +232,12 @@ def annotate_input(
         if isinstance(default_value, Choice):
             return (default_value.choices,), False
         if isinstance(default_value, StringInput):
-            return (
-                type_name,
-                {"default": default_value, "multiline": default_value.multiline},
-            ), False
+            return (type_name, default_value.to_dict()), False
         return (type_name, {"default": default_value}), has_default
     return (type_name,), has_default
 
 
-def infer_input_types_from_annotations(func, skip_first, debug=False):
+def _infer_input_types_from_annotations(func, skip_first, debug=False):
     """
     Infer input types based on function annotations.
     """
@@ -160,15 +252,16 @@ def infer_input_types_from_annotations(func, skip_first, debug=False):
         print("ALL PARAMS", params)
     
     if skip_first:
-        print("SKIPPING FIRST PARAM ", params[0])
+        if debug:
+            print("SKIPPING FIRST PARAM ", params[0])
         params = params[1:]
 
     for param_name, param in params:
         input_is_list[param_name] = get_origin(param.annotation) is list
         if debug:
             print("Param default:", param.default)
-        comfyui_type = ANNOTATION_TO_COMFYUI_TYPE.get(param.annotation, any_type)
-        the_param, is_optional = annotate_input(comfyui_type, param.default, debug)
+        comfyui_type = get_type_str(param.annotation)
+        the_param, is_optional = _annotate_input(comfyui_type, param.default, debug)
         if not is_optional:
             input_types[param_name] = the_param
         else:
@@ -176,7 +269,7 @@ def infer_input_types_from_annotations(func, skip_first, debug=False):
     return input_types, optional_input_types, input_is_list
 
 
-def infer_return_types_from_annotations(func, debug=False):
+def _infer_return_types_from_annotations(func, debug=False):
     """
     Infer whether each element in a function's return tuple is a list or a single item.
     """
@@ -204,19 +297,19 @@ def infer_return_types_from_annotations(func, debug=False):
             if get_origin(arg) == list:
                 output_is_list.append(True)
                 list_arg = get_args(arg)[0]
-                types_mapped.append(ANNOTATION_TO_COMFYUI_TYPE.get(list_arg, None))
+                types_mapped.append(get_type_str(list_arg))
             else:
                 output_is_list.append(False)
-                types_mapped.append(ANNOTATION_TO_COMFYUI_TYPE.get(arg, None))
+                types_mapped.append(get_type_str(arg))
     elif origin is list:
         if debug:
-            print(ANNOTATION_TO_COMFYUI_TYPE.get(return_annotation, None))
+            print(get_type_str(return_annotation))
             print(return_annotation)
             print(return_args)
-        types_mapped.append(ANNOTATION_TO_COMFYUI_TYPE.get(return_args[0], None))
+        types_mapped.append(get_type_str(return_args[0]))
         output_is_list.append(origin is list)
     elif return_annotation is not inspect.Parameter.empty:
-        types_mapped.append(ANNOTATION_TO_COMFYUI_TYPE.get(return_annotation, None))
+        types_mapped.append(get_type_str(return_annotation))
         output_is_list.append(False)
 
     return_types_tuple = tuple(types_mapped)
@@ -229,50 +322,7 @@ def infer_return_types_from_annotations(func, debug=False):
     return return_types_tuple, output_is_lists_tuple
 
 
-def clone_func(func, wrapped_func):
-    sig = inspect.signature(func)
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        bound_args = sig.bind(*args, **kwargs)
-        bound_args.apply_defaults()
-
-        # Unpack the dictionary when passing it as **kwargs
-        return wrapped_func(**bound_args.arguments)
-
-    wrapper.__signature__ = sig
-    return wrapper
-
-
-# def _custom_validate(**kwargs):
-#     for key, value in kwargs.items():
-#         logging.info("%s %s", key, type(value))
-#         if isinstance(value, str):
-#             logging.info(f"'{value}'")
-#         if isinstance(value, pathlib.Path):
-#             if not value.exists():
-#                 raise FileNotFoundError(f"Doesn't exist!")
-#     return True
-
-
-# def _custom_is_changed(**kwargs):
-#     logging.error("_custom_is_changed: " + str(kwargs.keys()))
-#     hash_input = ''
-#     for key, value in kwargs.items():
-#         logging.info("%s %s", key, type(value))
-#         # if isinstance(value, Path):
-#         if isinstance(value, str):
-#             logging.info(f"'{value}'")
-#             hash_input += str(value)
-#     hash_object = hashlib.sha256(hash_input.encode())
-#     digest = hash_object.hexdigest()
-#     if len(hash_input) > 0:
-#         raise Exception("This actually ran?")
-#     logging.info("IS_CHANGED %d %d '%s' '%s'", len(kwargs), len(kwargs.keys()), hash_input, digest)
-#     return digest
-
-
-def create_comfy_node(
+def _create_comfy_node(
     cname,
     category,
     node_class,
@@ -288,40 +338,28 @@ def create_comfy_node(
     validate_inputs=None,
     is_changed=None,
     debug=False,
-):
-    logger = logging.getLogger(cname)
-    if debug:
-        logger.info(
-            "-------------------------------------------------------------------"
-        )
-        logger.info(f"Creating Comfy node for {process_function.__name__}")
-
-    if debug:
-        logger.info(return_types)
-        logger.info(output_is_list)
-
+):   
     all_inputs = {"required": required_inputs, "optional": optional_inputs}
-
-    if debug:
-        print(f"Final returns: {return_types}")
-        
-    if debug:
-        print("process_function:", process_function.__name__)
 
     # Initial class dictionary setup
     class_dict = {
         "INPUT_TYPES": classmethod(lambda cls: all_inputs),
         "CATEGORY": category,
         "RETURN_TYPES": return_types,
-        "FUNCTION": cname + "_wrapper",
+        "FUNCTION": cname,
         "INPUT_IS_LIST": input_is_list,
         "OUTPUT_IS_LIST": output_is_list,
         "OUTPUT_NODE": is_output_node,
         "VALIDATE_INPUTS": validate_inputs,
         "IS_CHANGED": is_changed,
-        cname + "_wrapper": process_function,
+        cname: process_function,
     }
     class_dict = {k: v for k, v in class_dict.items() if v is not None}
+
+    if debug:
+        logger = logging.getLogger(cname)
+        for key, value in class_dict.items():
+            logger.info(f"{key}: {value}")
 
     assert (
         workflow_name not in NODE_CLASS_MAPPINGS
@@ -338,33 +376,29 @@ def create_comfy_node(
             setattr(node_class, key, value)
     else:
         node_class = type(workflow_name, (object,), class_dict)
-    
-    if debug:
-        print(type(node_class), node_class)
 
     NODE_CLASS_MAPPINGS[workflow_name] = node_class
     NODE_DISPLAY_NAME_MAPPINGS[workflow_name] = display_name
     
-    
 
-def is_static_method(klass, attr):
+def _is_static_method(cls, attr):
     """Check if a method is a static method."""
-    if klass is None:
+    if cls is None:
         return False
-    attr_value = inspect.getattr_static(klass, attr, None)
+    attr_value = inspect.getattr_static(cls, attr, None)
     is_static = isinstance(attr_value, staticmethod)
     return is_static
 
 
-def is_class_method(klass, attr):
-    if klass is None:
+def _is_class_method(cls, attr):
+    if cls is None:
         return False
-    attr_value = inspect.getattr_static(klass, attr, None)
+    attr_value = inspect.getattr_static(cls, attr, None)
     is_class_method = isinstance(attr_value, classmethod)
     return is_class_method
 
 
-def get_node_class(func):
+def _get_node_class(func):
     split_name = func.__qualname__.split(".")
 
     if len(split_name) > 1:
@@ -374,130 +408,3 @@ def get_node_class(func):
             node_class = func.__globals__.get(class_name, None)
         return node_class
     return None
-
-
-def ComfyFunc(
-    category="default",
-    display_name=None,
-    workflow_name=None,
-    is_output_node=False,
-    validate_inputs=None,
-    is_changed=None,
-    debug=False):
-    def decorator(func):
-        if debug:
-            print("================= Decorating", func.__qualname__)
-        
-        node_class = get_node_class(func)
-        
-        is_static = is_static_method(node_class, func.__name__)
-        is_cls_mth = is_class_method(node_class, func.__name__)
-        is_member = node_class is not None and not is_static and not is_cls_mth
-                
-        required_inputs, optional_inputs, input_is_list_map = infer_input_types_from_annotations(func, is_member, debug)
-        
-        if debug:
-            print(func.__name__, "Is static:", is_static, "Is member:", is_member, "Class method:", is_cls_mth)
-            print("Required inputs:", required_inputs)
-            print(required_inputs, optional_inputs, input_is_list_map)
-        
-        return_types, output_is_list = infer_return_types_from_annotations(func, debug)
-        
-        # There's not much point in a node that doesn't have any outputs
-        # and isn't an output itself, so auto-promote in that case.
-        force_output = len(return_types) == 0
-        name_parts = [x.title() for x in func.__name__.split("_")]
-        input_is_list = any(input_is_list_map.values())
-        
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            if debug:
-                print(func.__name__, "wrapper called with", len(args), "args and", len(kwargs), "kwargs. Is cls mth:", is_cls_mth)
-                for i, arg in enumerate(args):
-                    print("arg", i, type(arg))
-                for key, arg in kwargs.items():
-                    print("kwarg", key, type(arg))
-                
-            # For some reason self still gets passed with class methods.
-            if is_cls_mth:
-                args = args[1:]
-            
-            # If the python function didn't annotate it as a list,
-            # but INPUT_TYPES does, then we need to convert make it not a list.
-            if input_is_list:
-                for arg_name in kwargs.keys():
-                    print(arg_name, len(kwargs[arg_name]))
-                    if not input_is_list_map[arg_name]:
-                        assert len(kwargs[arg_name]) == 1
-                        kwargs[arg_name] = kwargs[arg_name][0]
-            
-            # if not validator(**kwargs):
-            #     print("Inputs not validated")
-            #     raise Exception("Inputs not validated")
-
-            result = func(*args, **kwargs)
-            if not isinstance(result, tuple):
-                return (result,)
-            return result
-        
-        if node_class is None or is_static:
-            wrapper = staticmethod(wrapper)
-            
-        if is_cls_mth:
-            wrapper = classmethod(wrapper)
-
-        create_comfy_node(
-            func.__qualname__,
-            category,
-            node_class,
-            wrapper,
-            display_name if display_name else " ".join(name_parts),
-            workflow_name if workflow_name else "".join(name_parts),
-            required_inputs,
-            optional_inputs,
-            input_is_list,
-            return_types,
-            output_is_list,
-            is_output_node=is_output_node or force_output,
-            validate_inputs=validate_inputs,
-            is_changed=is_changed,
-            debug=debug
-        )
-
-        return func
-
-    return decorator
-
-
-def return_with_status_text(result, text, unique_id=None, extra_pnginfo=None):
-    if unique_id and extra_pnginfo and "workflow" in extra_pnginfo:
-        workflow = extra_pnginfo["workflow"]
-        node = next((x for x in workflow["nodes"] if str(x["id"]) == unique_id), None)
-        if node:
-            node["widgets_values"] = [text]
-    return {"ui": {"text": [text]}, "result": (result,)}
-
-
-def sha1_file(filepath):
-    """Calculate the SHA-1 checksum of a file."""
-    hash_sha1 = hashlib.sha1()
-    with open(filepath, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_sha1.update(chunk)
-    return hash_sha1.hexdigest()
-
-
-def get_filenames(dir_path):
-    filenames = os.listdir(dir_path)
-    filenames.sort()
-    return filenames
-
-
-def sha1_directory(dir_path):
-    """Calculate the SHA-1 checksum of a directory."""
-    hash_sha1 = hashlib.sha1()
-    for filename in get_filenames(dir_path):
-        filepath = os.path.join(dir_path, filename)
-        if os.path.isfile(filepath):
-            hash_sha1.update(sha1_file(filepath).encode("utf-8"))
-    return hash_sha1.hexdigest()

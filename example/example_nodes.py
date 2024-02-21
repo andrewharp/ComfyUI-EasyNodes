@@ -61,7 +61,7 @@ def convert_to_image(mask: MaskTensor) -> ImageTensor:
 
 
 @ComfyFunc(category=my_category)
-def combine_lists(image1: list[torch.Tensor], image2: list[torch.tensor]) -> list[torch.Tensor]:
+def combine_lists(image1: list[torch.Tensor], image2: list[torch.Tensor]) -> list[torch.Tensor]:
     combined_lists = image1 + image2
     return combined_lists
 
