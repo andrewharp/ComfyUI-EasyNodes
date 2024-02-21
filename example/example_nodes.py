@@ -20,18 +20,36 @@ def annotated_example(image: ImageTensor,
     #do some processing on the image, in this example I just invert it
     image = 1.0 - image
     return image  # Internally this gets auto-converted to (image,) for ComfyUI.
-
-
+    
 
 # You can wrap existing functions with ComfyFunc to expose them to ComfyUI as well.
+# Here, 
 def another_function(foo: float = 1.0):
     print("Hello World!")
+ComfyFunc(category=my_category, is_changed=lambda:random.random())(another_function)
 
 
-# This will expose another_function to ComfyUI, and automatically turn it into an output node since
-# it doesn't have a return type.
-# As foo has a default value, it is considered optional and this node will run simply by existing.
-ComfyFunc(category=my_category, workflow_name="foobarbaz", is_changed=lambda: random.random(), debug=True)(another_function)
+# You can also wrap a method on a class and thus maintain state between calls.
+# This allows a node to keep some state.
+# 
+# Note that you can only expose one method per class, and you have to define the full class before manually
+# calling the decorator on the method.
+class ExampleClass:
+    def __init__(self):
+        self.counter = 42
+    def my_method(self):
+        print(f"ExampleClass Hello World! {self.counter}")
+        self.counter += 1
+ComfyFunc(category=my_category, is_changed=lambda:random.random())(ExampleClass.my_method)
+
+
+class AnotherExampleClass:
+    class_counter = 42
+    @classmethod
+    def my_class_method(cls, foo: float):
+        print(f"AnotherExampleClass Hello World! {cls.class_counter} {foo}")
+        cls.class_counter += 1
+ComfyFunc(category=my_category, is_changed=lambda:random.random())(AnotherExampleClass.my_class_method)
 
 
 # ImageTensors and MaskTensors are both just torch.Tensors, but they are help to differentiate between

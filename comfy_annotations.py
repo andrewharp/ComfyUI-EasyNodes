@@ -3,8 +3,6 @@ import hashlib
 import inspect
 import logging
 import os
-import pathlib
-import sys
 
 import inspect
 from functools import wraps
@@ -12,6 +10,7 @@ from typing import NewType, get_args, get_origin
 import torch
 import logging
 import sys
+import inspect
 
 default_category = "ComfyFunc"
 
@@ -146,7 +145,7 @@ def annotate_input(
     return (type_name,), has_default
 
 
-def infer_input_types_from_annotations(func, debug=False):
+def infer_input_types_from_annotations(func, skip_first, debug=False):
     """
     Infer input types based on function annotations.
     """
@@ -154,7 +153,17 @@ def infer_input_types_from_annotations(func, debug=False):
     sig = inspect.signature(func)
     input_types = {}
     optional_input_types = {}
-    for param_name, param in sig.parameters.items():
+
+    params = list(sig.parameters.items())
+    
+    if debug:
+        print("ALL PARAMS", params)
+    
+    if skip_first:
+        print("SKIPPING FIRST PARAM ", params[0])
+        params = params[1:]
+
+    for param_name, param in params:
         input_is_list[param_name] = get_origin(param.annotation) is list
         if debug:
             print("Param default:", param.default)
@@ -266,6 +275,7 @@ def clone_func(func, wrapped_func):
 def create_comfy_node(
     cname,
     category,
+    node_class,
     process_function,
     display_name,
     workflow_name,
@@ -294,29 +304,24 @@ def create_comfy_node(
 
     if debug:
         print(f"Final returns: {return_types}")
+        
+    if debug:
+        print("process_function:", process_function.__name__)
 
     # Initial class dictionary setup
     class_dict = {
         "INPUT_TYPES": classmethod(lambda cls: all_inputs),
         "CATEGORY": category,
         "RETURN_TYPES": return_types,
-        "FUNCTION": cname,
+        "FUNCTION": cname + "_wrapper",
         "INPUT_IS_LIST": input_is_list,
         "OUTPUT_IS_LIST": output_is_list,
         "OUTPUT_NODE": is_output_node,
-        process_function.__name__: staticmethod(process_function),
+        "VALIDATE_INPUTS": validate_inputs,
+        "IS_CHANGED": is_changed,
+        cname + "_wrapper": process_function,
     }
-
-    if validate_inputs:
-        class_dict["VALIDATE_INPUTS"] = staticmethod(validate_inputs)
-
-    if is_changed:
-        class_dict["IS_CHANGED"] = staticmethod(is_changed)
-
-    for key, value in class_dict.items():
-        assert (
-            value is not None
-        ), f"Value for {key} cannot be None in class_dict for {cname}"
+    class_dict = {k: v for k, v in class_dict.items() if v is not None}
 
     assert (
         workflow_name not in NODE_CLASS_MAPPINGS
@@ -324,11 +329,51 @@ def create_comfy_node(
     assert (
         display_name not in NODE_DISPLAY_NAME_MAPPINGS.values()
     ), f"Display name '{display_name}' already exists!"
+    assert(
+        node_class not in NODE_CLASS_MAPPINGS.values()
+    ), f"Only one method from '{node_class} can be used as a ComfyUI node.'"
 
-    node_class = type(workflow_name, (object,), class_dict)
+    if node_class:
+        for key, value in class_dict.items():
+            setattr(node_class, key, value)
+    else:
+        node_class = type(workflow_name, (object,), class_dict)
+    
+    if debug:
+        print(type(node_class), node_class)
 
     NODE_CLASS_MAPPINGS[workflow_name] = node_class
     NODE_DISPLAY_NAME_MAPPINGS[workflow_name] = display_name
+    
+    
+
+def is_static_method(klass, attr):
+    """Check if a method is a static method."""
+    if klass is None:
+        return False
+    attr_value = inspect.getattr_static(klass, attr, None)
+    is_static = isinstance(attr_value, staticmethod)
+    return is_static
+
+
+def is_class_method(klass, attr):
+    if klass is None:
+        return False
+    attr_value = inspect.getattr_static(klass, attr, None)
+    is_class_method = isinstance(attr_value, classmethod)
+    return is_class_method
+
+
+def get_node_class(func):
+    split_name = func.__qualname__.split(".")
+
+    if len(split_name) > 1:
+        class_name = split_name[-2]
+        node_class = globals().get(class_name, None)
+        if node_class is None and hasattr(func, '__globals__'):
+            node_class = func.__globals__.get(class_name, None)
+        return node_class
+    return None
 
 
 def ComfyFunc(
@@ -340,21 +385,42 @@ def ComfyFunc(
     is_changed=None,
     debug=False):
     def decorator(func):
-        required_inputs, optional_inputs, input_is_list_map = (
-            infer_input_types_from_annotations(func, debug)
-        )
-        return_types, output_is_list = infer_return_types_from_annotations(
-            func, debug
-        )
+        if debug:
+            print("================= Decorating", func.__qualname__)
+        
+        node_class = get_node_class(func)
+        
+        is_static = is_static_method(node_class, func.__name__)
+        is_cls_mth = is_class_method(node_class, func.__name__)
+        is_member = node_class is not None and not is_static and not is_cls_mth
+                
+        required_inputs, optional_inputs, input_is_list_map = infer_input_types_from_annotations(func, is_member, debug)
         
         if debug:
-            print(return_types)
- 
-
+            print(func.__name__, "Is static:", is_static, "Is member:", is_member, "Class method:", is_cls_mth)
+            print("Required inputs:", required_inputs)
+            print(required_inputs, optional_inputs, input_is_list_map)
+        
+        return_types, output_is_list = infer_return_types_from_annotations(func, debug)
+        
+        # There's not much point in a node that doesn't have any outputs
+        # and isn't an output itself, so auto-promote in that case.
+        force_output = len(return_types) == 0
+        name_parts = [x.title() for x in func.__name__.split("_")]
+        input_is_list = any(input_is_list_map.values())
+        
         @functools.wraps(func)
-        def wrapper(**kwargs):
-            for i, arg in enumerate(kwargs):
-                print("kwarg", i, type(arg), len(arg))
+        def wrapper(*args, **kwargs):
+            if debug:
+                print(func.__name__, "wrapper called with", len(args), "args and", len(kwargs), "kwargs. Is cls mth:", is_cls_mth)
+                for i, arg in enumerate(args):
+                    print("arg", i, type(arg))
+                for key, arg in kwargs.items():
+                    print("kwarg", key, type(arg))
+                
+            # For some reason self still gets passed with class methods.
+            if is_cls_mth:
+                args = args[1:]
             
             # If the python function didn't annotate it as a list,
             # but INPUT_TYPES does, then we need to convert make it not a list.
@@ -369,29 +435,24 @@ def ComfyFunc(
             #     print("Inputs not validated")
             #     raise Exception("Inputs not validated")
 
-            result = func(**kwargs)
+            result = func(*args, **kwargs)
             if not isinstance(result, tuple):
                 return (result,)
             return result
         
+        if node_class is None or is_static:
+            wrapper = staticmethod(wrapper)
+            
+        if is_cls_mth:
+            wrapper = classmethod(wrapper)
 
-        # There's not much point in a node that doesn't have any outputs
-        # and isn't an output itself, so auto-promote in that case.
-        force_output = len(return_types) == 0
-        
-        input_is_list = any(input_is_list_map.values())
-        workflow_name2 = workflow_name if workflow_name else "".join(x.title() for x in func.__name__.split("_"))
-        
-        print(workflow_name, workflow_name2)
-        
-        display_name2 = display_name if display_name else " ".join(x.title() for x in func.__name__.split("_"))
-             
         create_comfy_node(
-            func.__name__,
+            func.__qualname__,
             category,
+            node_class,
             wrapper,
-            display_name2,
-            workflow_name2,
+            display_name if display_name else " ".join(name_parts),
+            workflow_name if workflow_name else "".join(name_parts),
             required_inputs,
             optional_inputs,
             input_is_list,
