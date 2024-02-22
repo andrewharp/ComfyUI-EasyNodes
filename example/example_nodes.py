@@ -23,76 +23,88 @@ def annotated_example(image: ImageTensor,
     
 
 # You can wrap existing functions with ComfyFunc to expose them to ComfyUI as well.
-# Here, 
 def another_function(foo: float = 1.0):
     print("Hello World!")
 ComfyFunc(category=my_category, is_changed=lambda:random.random())(another_function)
 
 
 # You can also wrap a method on a class and thus maintain state between calls.
-# This allows a node to keep some state.
 # 
 # Note that you can only expose one method per class, and you have to define the full class before manually
 # calling the decorator on the method.
 class ExampleClass:
     def __init__(self):
         self.counter = 42
+
     def my_method(self):
         print(f"ExampleClass Hello World! {self.counter}")
         self.counter += 1
+
 ComfyFunc(category=my_category, is_changed=lambda:random.random())(ExampleClass.my_method)
 
 
+# Wrapping a class method
 class AnotherExampleClass:
     class_counter = 42
+
     @classmethod
     def my_class_method(cls, foo: float):
         print(f"AnotherExampleClass Hello World! {cls.class_counter} {foo}")
         cls.class_counter += 1
+
 ComfyFunc(category=my_category, is_changed=lambda:random.random())(AnotherExampleClass.my_class_method)
 
 
-# ImageTensors and MaskTensors are both just torch.Tensors, but they are help to differentiate between
+# ImageTensors and MaskTensors are both just torch.Tensors. Use them in annotations to differentiate between
 # images and masks in ComfyUI. This is purely cosmetic, and they are interchangeable in Python.
-# If you annotate the type of a parameter as torch.Tensor, ComfyUI will treat it as an ImageTensor.
+# If you annotate the type of a parameter as torch.Tensor it will be treat as an ImageTensor.
 @ComfyFunc(category=my_category)
 def convert_to_image(mask: MaskTensor) -> ImageTensor:
     return mask
 
 
+# If you wrap your input types in list[], under the hood the decorator will make sure you get
+# everything in a single call with the list inputs passed to you as lists automatically.
+# If you don't, then you'll get multiple calls with a single item on each call.
 @ComfyFunc(category=my_category)
 def combine_lists(image1: list[torch.Tensor], image2: list[torch.Tensor]) -> list[torch.Tensor]:
     combined_lists = image1 + image2
     return combined_lists
 
 
+# Adding a default for a param makes it optional, so ComfyUI won't require it to run your node.
 @ComfyFunc(category=my_category)
 def combine_tensors(image1: torch.Tensor, image2: torch.Tensor, image3: torch.Tensor=None) -> torch.Tensor:
     combined_tensors = image1 + image2
-    
     if image3 is not None:
         combined_tensors += image3
-    
     return combined_tensors
 
 
+# Multiple outputs can be returned by annotating with tuple[]
 @ComfyFunc(category=my_category)
 def threshold_image(image: torch.Tensor, threshold_value: float) -> tuple[MaskTensor, MaskTensor]:
     return image < threshold_value, image > threshold_value
 
 
+# ImageTensor and MaskTensor are just torch.Tensors, so you can treat them as such.
 @ComfyFunc(category=my_category)
 def mask_image(image: ImageTensor, mask: MaskTensor) -> ImageTensor:
     return image * mask
 
-
+# As long as Python is happy, ComfyUI will be happy with whatever you tell it the return type is.
 @ComfyFunc(category=my_category)
 def convert_to_mask(image: ImageTensor, threshold: float=0.5) -> MaskTensor:
     return (image > threshold).float()
 
 
-# We can also use it as a regular method. The special Number/Choice/ImageTensor types are only used by ComfyUI,
-# and turn into plain Python types/torch.Tensors when used here.
+# The decorated functions remain normal Python functions, so we can nest them inside each other too.
+def mask_image_with_image(image: ImageTensor, image_to_use_as_mask: ImageTensor) -> ImageTensor:
+  mask = convert_to_mask(image_to_use_as_mask)
+  return mask_image(image, mask)
+
+
+# And of course you can use the code in normal Python scripts too.
 if __name__ == '__main__':
     tensor = torch.rand((5, 5))
     tensor_inverted = annotated_example(tensor, "hello", 5, 0.5, "enable")
