@@ -127,7 +127,7 @@ def get_type_str(the_type) -> str:
 
 
 def ComfyFunc(
-    category="default",
+    category=default_category,
     display_name=None,
     workflow_name=None,
     is_output_node=False,
@@ -287,12 +287,10 @@ def _infer_return_types_from_annotations(func, debug=False):
         print(f"return_args: '{return_args}'")
         print(f"origin: '{origin}'")
         print(type(return_annotation))
+        print(return_annotation)
 
     types_mapped = []
     output_is_list = []
-    
-    if debug:
-        print(return_annotation)
     
     if origin is tuple:
         for arg in return_args:
