@@ -1,11 +1,11 @@
-# ComfyUI Function Annotator
+# ComfyUI Node-Creating Decorator
 
-This module provides an annotation @ComfyFunc to streamline adding custom node types in [ComfyUI](https://github.com/comfyanonymous/ComfyUI). It processes your function's signature to create a wrapped function and custom node definition required for ComfyUI, eliminating all the boilerplate code. In most cases you can just add a @ComfyFunc("category") annotation to your existing function.
+This module provides an annotation-ingesting decorator, @ComfyFunc, to streamline adding custom node types in [ComfyUI](https://github.com/comfyanonymous/ComfyUI). It processes your function's signature to create a wrapped function and custom node definition required for ComfyUI, eliminating all the boilerplate code. In most cases you can just add a @ComfyFunc("category") decorator to your existing function.
 
 ```
 from comfy_annotations import ComfyFunc, ImageTensor, MaskTensor
 
-@ComfyFunc(category="Image")
+@ComfyFunc("Example category")
 def mask_image(image: ImageTensor, mask: MaskTensor) -> ImageTensor:
     """Applies a mask to an image."""
     return image * mask
@@ -18,11 +18,11 @@ That's it! Now your operation is ready for ComfyUI. More example definitions can
 
 ## Features
 
-- **@ComfyFunc Decorator**: Simplifies the declaration of custom nodes with automatic UI binding based on type annotations. Existing Python functions can be converted to ComfyUI nodes with a simple "@ComfyFunc()"
+- **@ComfyFunc Decorator**: Simplifies the declaration of custom nodes with automagic node declaration based on Python type annotations. Existing Python functions can be converted to ComfyUI nodes with a simple "@ComfyFunc()"
 - **Type Support**: Includes several custom types (`ImageTensor`, `MaskTensor`, `NumberInput`, etc.) to facilitate specific UI controls like sliders, choices, and text inputs.
 - **Dual purpose**: @ComfyFunc-decorated functions remain regular Python functions too.
 - **Automatic list and tuple handling**: Simply annotate the type as e.g. ```list[torch.Tensor]``` and your function will automatically make sure you get passed a list. It will also auto-tuple your return value for you internally (or leave it alone if you just want to copy your existing code).
-- **Supports most ComyUI node definition features**: validate_input, etc can be specified as parameters to the ComfyFunc decorator.
+- **Supports most ComyUI node definition features**: validate_input, is_output_node, etc can be specified as parameters to the ComfyFunc decorator.
 
 ## Installation
 
@@ -52,6 +52,7 @@ To use this module in your ComfyUI project, follow these steps:
     # NODE_CLASS_MAPPINGS.update(example.example_nodes.NODE_CLASS_MAPPINGS) 
     # NODE_DISPLAY_NAME_MAPPINGS.update(example.example_nodes.NODE_DISPLAY_NAME_MAPPINGS)
 
+    # Export so that ComfyUI can pick them up.
     __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
     ```
 
@@ -84,7 +85,7 @@ To use this module in your ComfyUI project, follow these steps:
 
     Example:
     ```python
-    @ComfyFunc(category="Utilities")
+    @ComfyFunc("Utilities")
     def add_value(the_list: list[ImageTensor], val: int) -> list[int]:
         return [img + the_value for img in the_list]
     ```
@@ -94,7 +95,7 @@ To use this module in your ComfyUI project, follow these steps:
 ```python
 from comfy_annotations import ComfyFunc, ImageTensor, MaskTensor, NumberInput, Choice, StringInput
 
-@ComfyFunc(category="Example")
+@ComfyFunc("Example")
 def annotated_example(image: ImageTensor, 
                       string_field: str = StringInput("Hello World!", multiline=False),
                       int_field: int = NumberInput(0, 0, 4096, 64, "number"), 
