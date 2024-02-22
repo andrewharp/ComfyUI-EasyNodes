@@ -33,11 +33,10 @@ To use this module in your ComfyUI project, follow these steps:
     ```bash
     pip install git+https://github.com/andrewharp/ComfyUI-Annotations.git
     ```
-
+    
 2. **Integrate into Your Project**:
-    - Navigate to your ComfyUI project's custom nodes directory (`ComfyUI/custom_nodes/<YOUR_PACKAGE>/`).
-    - Open or create the `__init__.py` file.
-    - Edit the module as shown below:
+    - Open your ComfyUI project's `__init__.py` (e.g. `ComfyUI/custom_nodes/my_project/__init__.py`).
+    - Edit to make your project export the ComfyFunc nodes as shown below:
 
     ```python
     NODE_CLASS_MAPPINGS = {}
@@ -62,7 +61,7 @@ To use this module in your ComfyUI project, follow these steps:
 1. **Annotate Functions with @ComfyFunc**: Decorate your processing functions with `@ComfyFunc`. The decorator accepts the following parameters:
    - `category`: Specifies the category under which the node will be listed in ComfyUI. Default is `"ComfyFunc"`.
    - `display_name`: Optionally specifies a human-readable name for the node as it will appear in ComfyUI. If not provided, a name is generated based on the function name.
-   - `workflow_name`: The internal identifier for this node type. If not provides, as name is generated based on the function name.
+   - `workflow_name`: The internal unique identifier for this node type. If not provided, a name is generated based on the function name.
    - `is_output_node`: maps to ComfyUI's IS_OUTPUT_NODE
    - `validate_inputs`: maps to ComfyUI's VALIDATE_INPUTS
    - `is_changed`: maps to ComfyUI's IS_CHANGED
@@ -110,6 +109,9 @@ def annotated_example(image: ImageTensor,
         """)
     return 1.0 - image
 ```
+
+More examples can be found in [example_nodes.py](https://github.com/andrewharp/ComfyUI-Annotations/blob/main/example/example_nodes.py)
+
 
 ## Contributing
 
