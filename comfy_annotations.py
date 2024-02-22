@@ -179,7 +179,8 @@ def ComfyFunc(
             # but INPUT_TYPES does, then we need to convert make it not a list.
             if input_is_list:
                 for arg_name in kwargs.keys():
-                    print(arg_name, len(kwargs[arg_name]))
+                    if debug:
+                        print("kwarg:", arg_name, len(kwargs[arg_name]))
                     if not input_is_list_map[arg_name]:
                         assert len(kwargs[arg_name]) == 1
                         kwargs[arg_name] = kwargs[arg_name][0]
