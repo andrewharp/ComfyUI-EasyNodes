@@ -99,6 +99,7 @@ def convert_to_mask(image: ImageTensor, threshold: float=0.5) -> MaskTensor:
 
 
 # The decorated functions remain normal Python functions, so we can nest them inside each other too.
+@ComfyFunc(category=my_category)
 def mask_image_with_image(image: ImageTensor, image_to_use_as_mask: ImageTensor) -> ImageTensor:
   mask = convert_to_mask(image_to_use_as_mask)
   return mask_image(image, mask)
