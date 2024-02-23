@@ -22,7 +22,7 @@ That's it! Now your operation is ready for ComfyUI. More example definitions can
 - **Type Support**: Includes several custom types (`ImageTensor`, `MaskTensor`, `NumberInput`, etc.) to facilitate specific UI controls like sliders, choices, and text inputs.
 - **Dual purpose**: @ComfyFunc-decorated functions remain regular Python functions too.
 - **Automatic list and tuple handling**: Simply annotate the type as e.g. ```list[torch.Tensor]``` and your function will automatically make sure you get passed a list. It will also auto-tuple your return value for you internally (or leave it alone if you just want to copy your existing code).
-- **Supports most ComyUI node definition features**: validate_input, is_output_node, etc can be specified as parameters to the ComfyFunc decorator.
+- **Supports most ComfyUI node definition features**: validate_input, is_output_node, etc can be specified as parameters to the ComfyFunc decorator.
 
 ## Installation
 

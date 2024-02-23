@@ -91,7 +91,10 @@ def threshold_image(image: torch.Tensor, threshold_value: float) -> tuple[MaskTe
 # ImageTensor and MaskTensor are just torch.Tensors, so you can treat them as such.
 @ComfyFunc(my_category)
 def mask_image(image: ImageTensor, mask: MaskTensor) -> ImageTensor:
-    return image * mask
+    image = image.clone()
+    image[mask == 0] = 1.0
+    return image
+
 
 # As long as Python is happy, ComfyUI will be happy with whatever you tell it the return type is.
 @ComfyFunc(my_category)
