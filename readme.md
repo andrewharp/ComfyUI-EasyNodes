@@ -64,6 +64,7 @@ To use this module in your ComfyUI project, follow these steps:
    - `display_name`: Optionally specifies a human-readable name for the node as it will appear in ComfyUI. If not provided, a name is generated based on the function name.
    - `workflow_name`: The internal unique identifier for this node type. If not provided, a name is generated based on the function name.
    - `is_output_node`: maps to ComfyUI's IS_OUTPUT_NODE
+   - `return_names`: maps to ComfyUI's RETURN_NAMES 
    - `validate_inputs`: maps to ComfyUI's VALIDATE_INPUTS
    - `is_changed`: maps to ComfyUI's IS_CHANGED
    - `debug`: A boolean that makes this operator print out extra information during its lifecycle.

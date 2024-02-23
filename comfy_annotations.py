@@ -131,6 +131,7 @@ def ComfyFunc(
     display_name=None,
     workflow_name=None,
     is_output_node=False,
+    return_names=None,
     validate_inputs=None,
     is_changed=None,
     debug=False):
@@ -155,6 +156,9 @@ def ComfyFunc(
             logger.info(required_inputs, optional_inputs, input_is_list_map)
         
         return_types, output_is_list = _infer_return_types_from_annotations(func, debug)
+        
+        if return_names:
+            assert len(return_names) == len(return_types), "Number of output names must match number of return types."
         
         # There's not much point in a node that doesn't have any outputs
         # and isn't an output itself, so auto-promote in that case.
@@ -207,6 +211,7 @@ def ComfyFunc(
             optional_inputs,
             input_is_list,
             return_types,
+            return_names,
             output_is_list,
             is_output_node=is_output_node or force_output,
             validate_inputs=validate_inputs,
@@ -336,6 +341,7 @@ def _create_comfy_node(
     optional_inputs,
     input_is_list,
     return_types,
+    return_names,
     output_is_list,
     is_output_node=False,
     validate_inputs=None,
@@ -353,6 +359,7 @@ def _create_comfy_node(
         "INPUT_IS_LIST": input_is_list,
         "OUTPUT_IS_LIST": output_is_list,
         "OUTPUT_NODE": is_output_node,
+        "RETURN_NAMES": return_names,
         "VALIDATE_INPUTS": validate_inputs,
         "IS_CHANGED": is_changed,
         cname: process_function,
