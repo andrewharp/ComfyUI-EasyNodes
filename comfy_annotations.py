@@ -3,7 +3,7 @@ import inspect
 import logging
 
 import inspect
-from typing import get_args, get_origin
+from typing import Callable, get_args, get_origin
 import torch
 import logging
 import inspect
@@ -31,7 +31,7 @@ class StringInput(str):
         instance = super().__new__(cls, value)
         instance.multiline = multiline
         return instance
-    
+
     def to_dict(self):
         return {"default": self, "multiline": self.multiline}
 
@@ -61,7 +61,7 @@ class NumberInput(int):
         instance.step = step
         instance.round = round
         return instance
-    
+
     def to_dict(self):
         metadata = {
             "default": self,
@@ -88,15 +88,16 @@ class ImageTensor(torch.Tensor):
 class MaskTensor(torch.Tensor):
     def __new__(cls):
         raise TypeError("Do not instantiate this class directly.")
-    
+
 
 # Made to match any and all other types.
 class AnyType(str):
     def __ne__(self, __value: object) -> bool:
         return False
-    
+
+
 any_type = AnyType("*")
-    
+
 
 _ANNOTATION_TO_COMFYUI_TYPE = {
     torch.Tensor: "IMAGE",
@@ -118,67 +119,120 @@ def register_type(cls, name: str):
 def get_type_str(the_type) -> str:
     if the_type not in _ANNOTATION_TO_COMFYUI_TYPE and get_origin(the_type) is list:
         return get_type_str(get_args(the_type)[0])
-    
+
     if the_type not in _ANNOTATION_TO_COMFYUI_TYPE and the_type is not inspect._empty:
-        logging.warning(f"Type '{the_type}' not registered with ComfyUI, treating as wildcard")
-    
+        logging.warning(
+            f"Type '{the_type}' not registered with ComfyUI, treating as wildcard"
+        )
+
     type_str = _ANNOTATION_TO_COMFYUI_TYPE.get(the_type, any_type)
     return type_str
 
 
 def ComfyFunc(
-    category=default_category,
-    display_name=None,
-    workflow_name=None,
-    is_output_node=False,
-    return_names=None,
-    validate_inputs=None,
-    is_changed=None,
-    debug=False):
+    category: str = default_category,
+    display_name: str = None,
+    workflow_name: str = None,
+    is_output_node: bool = False,
+    return_names: list[str] = None,
+    validate_inputs: Callable = None,
+    is_changed: Callable = None,
+    debug: bool = False,
+):
+    """
+    Decorator function for creating ComfyUI nodes.
+
+    Args:
+        category (str): The category of the node.
+        display_name (str): The display name of the node. If not provided, it will be generated from the function name.
+        workflow_name (str): The workflow name of the node. If not provided, it will be generated from the function name.
+        is_output_node (bool): Indicates whether the node is an output node and should be run regardless of if anything depends on it.
+        return_names (list[str]): The names of the outputs. Must match the number of return types.
+        validate_inputs (Callable): A function used to validate the inputs of the node.
+        is_changed (Callable): A function used to determine if the node's inputs have changed.
+        debug (bool): Indicates whether to enable debug logging for this node.
+
+    Returns:
+        A decorator that can be called with a function to create a ComfyUI node.
+
+    """
+    # Rest of the code...
+def ComfyFunc(
+    category: str = default_category,
+    display_name: str = None,
+    workflow_name: str = None,
+    is_output_node: bool = False,
+    return_names: list[str] = None,
+    validate_inputs: Callable = None,
+    is_changed: Callable = None,
+    debug: bool = False,
+):
     def decorator(func):
         wrapped_name = func.__qualname__ + "_wrapper"
         if debug:
             logger = logging.getLogger(wrapped_name)
-            logger.info("-------------------------------------------------------------------")
+            logger.info(
+                "-------------------------------------------------------------------"
+            )
             logger.info(f"Decorating {func.__qualname__}")
-        
+
         node_class = _get_node_class(func)
-        
+
         is_static = _is_static_method(node_class, func.__name__)
         is_cls_mth = _is_class_method(node_class, func.__name__)
         is_member = node_class is not None and not is_static and not is_cls_mth
-                
-        required_inputs, optional_inputs, input_is_list_map = _infer_input_types_from_annotations(func, is_member, debug)
-        
+
+        required_inputs, optional_inputs, input_is_list_map = (
+            _infer_input_types_from_annotations(func, is_member, debug)
+        )
+
         if debug:
-            logger.info(func.__name__, "Is static:", is_static, "Is member:", is_member, "Class method:", is_cls_mth)
+            logger.info(
+                func.__name__,
+                "Is static:",
+                is_static,
+                "Is member:",
+                is_member,
+                "Class method:",
+                is_cls_mth,
+            )
             logger.info("Required inputs:", required_inputs)
             logger.info(required_inputs, optional_inputs, input_is_list_map)
-        
+
         return_types, output_is_list = _infer_return_types_from_annotations(func, debug)
-        
+
         if return_names:
-            assert len(return_names) == len(return_types), "Number of output names must match number of return types."
-        
+            assert len(return_names) == len(
+                return_types
+            ), "Number of output names must match number of return types."
+
         # There's not much point in a node that doesn't have any outputs
         # and isn't an output itself, so auto-promote in that case.
         force_output = len(return_types) == 0
         name_parts = [x.title() for x in func.__name__.split("_")]
         input_is_list = any(input_is_list_map.values())
-        
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if debug:
-                logger.info(func.__name__, "wrapper called with", len(args), "args and", len(kwargs), "kwargs. Is cls mth:", is_cls_mth)
+                logger.info(
+                    func.__name__,
+                    "wrapper called with",
+                    len(args),
+                    "args and",
+                    len(kwargs),
+                    "kwargs. Is cls mth:",
+                    is_cls_mth,
+                )
                 for i, arg in enumerate(args):
                     logger.info("arg", i, type(arg))
                 for key, arg in kwargs.items():
                     logger.info("kwarg", key, type(arg))
-                
+
             # For some reason self still gets passed with class methods.
             if is_cls_mth:
                 args = args[1:]
-            
+
             # If the python function didn't annotate it as a list,
             # but INPUT_TYPES does, then we need to convert make it not a list.
             if input_is_list:
@@ -193,10 +247,10 @@ def ComfyFunc(
             if not isinstance(result, tuple):
                 return (result,)
             return result
-        
+
         if node_class is None or is_static:
             wrapper = staticmethod(wrapper)
-            
+
         if is_cls_mth:
             wrapper = classmethod(wrapper)
 
@@ -216,7 +270,7 @@ def ComfyFunc(
             is_output_node=is_output_node or force_output,
             validate_inputs=validate_inputs,
             is_changed=is_changed,
-            debug=debug
+            debug=debug,
         )
 
         return func
@@ -257,10 +311,10 @@ def _infer_input_types_from_annotations(func, skip_first, debug=False):
     optional_input_types = {}
 
     params = list(sig.parameters.items())
-    
+
     if debug:
         print("ALL PARAMS", params)
-    
+
     if skip_first:
         if debug:
             print("SKIPPING FIRST PARAM ", params[0])
@@ -296,7 +350,7 @@ def _infer_return_types_from_annotations(func, debug=False):
 
     types_mapped = []
     output_is_list = []
-    
+
     if origin is tuple:
         for arg in return_args:
             if debug:
@@ -347,7 +401,7 @@ def _create_comfy_node(
     validate_inputs=None,
     is_changed=None,
     debug=False,
-):   
+):
     all_inputs = {"required": required_inputs, "optional": optional_inputs}
 
     # Initial class dictionary setup
@@ -377,7 +431,7 @@ def _create_comfy_node(
     assert (
         display_name not in NODE_DISPLAY_NAME_MAPPINGS.values()
     ), f"Display name '{display_name}' already exists!"
-    assert(
+    assert (
         node_class not in NODE_CLASS_MAPPINGS.values()
     ), f"Only one method from '{node_class} can be used as a ComfyUI node.'"
 
@@ -389,7 +443,7 @@ def _create_comfy_node(
 
     NODE_CLASS_MAPPINGS[workflow_name] = node_class
     NODE_DISPLAY_NAME_MAPPINGS[workflow_name] = display_name
-    
+
 
 def _is_static_method(cls, attr):
     """Check if a method is a static method."""
@@ -414,7 +468,7 @@ def _get_node_class(func):
     if len(split_name) > 1:
         class_name = split_name[-2]
         node_class = globals().get(class_name, None)
-        if node_class is None and hasattr(func, '__globals__'):
+        if node_class is None and hasattr(func, "__globals__"):
             node_class = func.__globals__.get(class_name, None)
         return node_class
     return None
