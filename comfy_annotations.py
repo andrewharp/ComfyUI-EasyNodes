@@ -134,6 +134,7 @@ def ComfyFunc(
     display_name: str = None,
     workflow_name: str = None,
     is_output_node: bool = False,
+    return_types: list = None,
     return_names: list[str] = None,
     validate_inputs: Callable = None,
     is_changed: Callable = None,
@@ -147,6 +148,7 @@ def ComfyFunc(
         display_name (str): The display name of the node. If not provided, it will be generated from the function name.
         workflow_name (str): The workflow name of the node. If not provided, it will be generated from the function name.
         is_output_node (bool): Indicates whether the node is an output node and should be run regardless of if anything depends on it.
+        return_types (list): A list of types to return. If not provided, it will be inferred from the function's annotations.
         return_names (list[str]): The names of the outputs. Must match the number of return types.
         validate_inputs (Callable): A function used to validate the inputs of the node.
         is_changed (Callable): A function used to determine if the node's inputs have changed.
@@ -156,17 +158,6 @@ def ComfyFunc(
         A decorator that can be called with a function to create a ComfyUI node.
 
     """
-    # Rest of the code...
-def ComfyFunc(
-    category: str = default_category,
-    display_name: str = None,
-    workflow_name: str = None,
-    is_output_node: bool = False,
-    return_names: list[str] = None,
-    validate_inputs: Callable = None,
-    is_changed: Callable = None,
-    debug: bool = False,
-):
     def decorator(func):
         wrapped_name = func.__qualname__ + "_wrapper"
         if debug:
@@ -199,16 +190,24 @@ def ComfyFunc(
             logger.info("Required inputs:", required_inputs)
             logger.info(required_inputs, optional_inputs, input_is_list_map)
 
-        return_types, output_is_list = _infer_return_types_from_annotations(func, debug)
+        
+        adjusted_return_types = []
+        output_is_list = []
+        if return_types is not None:
+            adjusted_return_types, output_is_list = _infer_return_types_from_annotations(
+                return_types, debug
+            )
+        else:
+            adjusted_return_types, output_is_list = _infer_return_types_from_annotations(func, debug)
 
         if return_names:
             assert len(return_names) == len(
-                return_types
-            ), "Number of output names must match number of return types."
+                adjusted_return_types
+            ), f"Number of output names must match number of return types. Got {len(return_names)} names and {len(return_types)} return types."
 
         # There's not much point in a node that doesn't have any outputs
         # and isn't an output itself, so auto-promote in that case.
-        force_output = len(return_types) == 0
+        force_output = len(adjusted_return_types) == 0
         name_parts = [x.title() for x in func.__name__.split("_")]
         input_is_list = any(input_is_list_map.values())
 
@@ -264,7 +263,7 @@ def ComfyFunc(
             required_inputs,
             optional_inputs,
             input_is_list,
-            return_types,
+            adjusted_return_types,
             return_names,
             output_is_list,
             is_output_node=is_output_node or force_output,
@@ -333,29 +332,32 @@ def _infer_input_types_from_annotations(func, skip_first, debug=False):
     return input_types, optional_input_types, input_is_list
 
 
-def _infer_return_types_from_annotations(func, debug=False):
+def _infer_return_types_from_annotations(func_or_types, debug=False):
     """
-    Infer whether each element in a function's return tuple is a list or a single item.
+    Infer whether each element in a function's return tuple is a list or a single item,
+    handling direct list inputs as well as function annotations.
     """
-    return_annotation = inspect.signature(func).return_annotation
-    return_args = get_args(return_annotation)
-    origin = get_origin(return_annotation)
+    if isinstance(func_or_types, list):
+        # Direct list of types provided
+        return_args = func_or_types
+        origin = tuple  # Assume tuple if directly provided with a list
+    else:
+        # Assuming it's a function, inspect its return annotation
+        return_annotation = inspect.signature(func_or_types).return_annotation
+        return_args = get_args(return_annotation)
+        origin = get_origin(return_annotation)
 
-    if debug:
-        print(f"return_annotation: '{return_annotation}'")
-        print(f"return_args: '{return_args}'")
-        print(f"origin: '{origin}'")
-        print(type(return_annotation))
-        print(return_annotation)
+        if debug:
+            print(f"return_annotation: '{return_annotation}'")
+            print(f"return_args: '{return_args}'")
+            print(f"origin: '{origin}'")
+            print(type(return_annotation), return_annotation)
 
     types_mapped = []
     output_is_list = []
 
     if origin is tuple:
         for arg in return_args:
-            if debug:
-                logging.error(get_origin(arg))
-
             if get_origin(arg) == list:
                 output_is_list.append(True)
                 list_arg = get_args(arg)[0]
@@ -377,9 +379,7 @@ def _infer_return_types_from_annotations(func, debug=False):
     return_types_tuple = tuple(types_mapped)
     output_is_lists_tuple = tuple(output_is_list)
     if debug:
-        print(
-            f"return_types_tuple: '{return_types_tuple}', output_is_lists_tuple: '{output_is_lists_tuple}'"
-        )
+        print(f"return_types_tuple: '{return_types_tuple}', output_is_lists_tuple: '{output_is_lists_tuple}'")
 
     return return_types_tuple, output_is_lists_tuple
 

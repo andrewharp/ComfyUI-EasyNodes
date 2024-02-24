@@ -115,7 +115,7 @@ def threshold_image(
 
 # ImageTensor and MaskTensor are just torch.Tensors, so you can treat them as such.
 @ComfyFunc(my_category)
-def mask_image(image: ImageTensor, mask: MaskTensor) -> ImageTensor:
+def example_mask_image(image: ImageTensor, mask: MaskTensor) -> ImageTensor:
     image = image.clone()
     image[mask == 0] = 1.0
     return image
