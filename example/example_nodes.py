@@ -76,7 +76,7 @@ ComfyFunc(my_category, is_changed=lambda: random.random())(
 # ImageTensors and MaskTensors are both just torch.Tensors. Use them in annotations to 
 # differentiate between images and masks in ComfyUI. This is purely cosmetic, and they 
 # are interchangeable in Python. If you annotate the type of a parameter as torch.Tensor
-# it will be treat as an ImageTensor.
+# it will be treated as an ImageTensor.
 @ComfyFunc(my_category)
 def convert_to_image(mask: MaskTensor) -> ImageTensor:
     return mask
