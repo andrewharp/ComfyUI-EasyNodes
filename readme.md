@@ -65,10 +65,12 @@ To use this module in your ComfyUI project, follow these steps:
    - `category`: Specifies the category under which the node will be listed in ComfyUI. Default is `"ComfyFunc"`.
    - `display_name`: Optionally specifies a human-readable name for the node as it will appear in ComfyUI. If not provided, a name is generated based on the function name.
    - `workflow_name`: The internal unique identifier for this node type. If not provided, a name is generated based on the function name.
-   - `is_output_node`: maps to ComfyUI's IS_OUTPUT_NODE
-   - `return_names`: maps to ComfyUI's RETURN_NAMES 
-   - `validate_inputs`: maps to ComfyUI's VALIDATE_INPUTS
-   - `is_changed`: maps to ComfyUI's IS_CHANGED
+   - `description`: An optional description for the node. If not provided the function's docstring, if any, will be used according to `comfy_annotations.docstring_mode`.
+   - `is_output_node`: Maps to ComfyUI's IS_OUTPUT_NODE.
+   - `return_names`: Maps to ComfyUI's RETURN_NAMES.
+   - `return_types`: Maps to ComfyUI's RETURN_TYPES. Use if the return type of the function itself is dynamic.
+   - `validate_inputs`: Maps to ComfyUI's VALIDATE_INPUTS.
+   - `is_changed`: Maps to ComfyUI's IS_CHANGED.
    - `debug`: A boolean that makes this operator print out extra information during its lifecycle.
 
     Example:

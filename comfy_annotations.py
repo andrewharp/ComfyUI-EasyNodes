@@ -7,8 +7,19 @@ from typing import Callable, get_args, get_origin
 import torch
 import logging
 import inspect
+from enum import Enum
 
 default_category = "ComfyFunc"
+
+class AutoDescriptionMode(Enum):
+    NONE = "none"
+    BRIEF = "brief"
+    FULL = "full"
+
+# Whether to automatically use the docstring as the description for nodes.
+# If set to AutoDescriptionMode.FULL, the full docstring will be used, whereas
+# AutoDescriptionMode.BRIEF will use only the first line of the docstring.
+docstring_mode = AutoDescriptionMode.FULL
 
 
 NODE_CLASS_MAPPINGS = {}
@@ -133,6 +144,7 @@ def ComfyFunc(
     category: str = default_category,
     display_name: str = None,
     workflow_name: str = None,
+    description: str = None,
     is_output_node: bool = False,
     return_types: list = None,
     return_names: list[str] = None,
@@ -155,11 +167,10 @@ def ComfyFunc(
         debug (bool): Indicates whether to enable debug logging for this node.
 
     Returns:
-        A decorator that can be called with a function to create a ComfyUI node.
-
+        A callable used that can be used with a function to create a ComfyUI node.
     """
     def decorator(func):
-        wrapped_name = func.__qualname__ + "_wrapper"
+        wrapped_name = func.__qualname__ + "_comfyfunc_wrapper"
         if debug:
             logger = logging.getLogger(wrapped_name)
             logger.info(
@@ -252,6 +263,13 @@ def ComfyFunc(
 
         if is_cls_mth:
             wrapper = classmethod(wrapper)
+            
+        the_description = description
+        if the_description is None and docstring_mode is not AutoDescriptionMode.NONE:
+            if func.__doc__:
+                the_description = func.__doc__.strip()
+                if docstring_mode == AutoDescriptionMode.BRIEF:
+                    the_description = the_description.split("\n")[0]
 
         _create_comfy_node(
             wrapped_name,
@@ -266,12 +284,14 @@ def ComfyFunc(
             adjusted_return_types,
             return_names,
             output_is_list,
+            description=the_description,
             is_output_node=is_output_node or force_output,
             validate_inputs=validate_inputs,
             is_changed=is_changed,
             debug=debug,
         )
 
+        # Return the original function so it can still be used as normal (only ComfyUI sees the wrapper function).
         return func
 
     return decorator
@@ -397,6 +417,7 @@ def _create_comfy_node(
     return_types,
     return_names,
     output_is_list,
+    description=None,
     is_output_node=False,
     validate_inputs=None,
     is_changed=None,
@@ -416,6 +437,7 @@ def _create_comfy_node(
         "RETURN_NAMES": return_names,
         "VALIDATE_INPUTS": validate_inputs,
         "IS_CHANGED": is_changed,
+        "DESCRIPTION": description,
         cname: process_function,
     }
     class_dict = {k: v for k, v in class_dict.items() if v is not None}

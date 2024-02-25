@@ -36,7 +36,8 @@ def annotated_example(
 
 # You can wrap existing functions with ComfyFunc to expose them to ComfyUI as well.
 def another_function(foo: float = 1.0):
-    print("Hello World!")
+    """Docstrings will be passed to the DESCRIPTION field on the node in ComfyUI."""
+    print("Hello World!", foo)
 
 
 ComfyFunc(my_category, is_changed=lambda: random.random())(another_function)
@@ -55,7 +56,11 @@ class ExampleClass:
         self.counter += 1
 
 
-ComfyFunc(my_category, is_changed=lambda: random.random())(ExampleClass.my_method)
+ComfyFunc(
+    my_category,
+    is_changed=lambda: random.random(),
+    description="Descriptions can also be passed in manually. This operation increments a counter",
+)(ExampleClass.my_method)
 
 
 # Wrapping a class method
@@ -73,8 +78,8 @@ ComfyFunc(my_category, is_changed=lambda: random.random())(
 )
 
 
-# ImageTensors and MaskTensors are both just torch.Tensors. Use them in annotations to 
-# differentiate between images and masks in ComfyUI. This is purely cosmetic, and they 
+# ImageTensors and MaskTensors are both just torch.Tensors. Use them in annotations to
+# differentiate between images and masks in ComfyUI. This is purely cosmetic, and they
 # are interchangeable in Python. If you annotate the type of a parameter as torch.Tensor
 # it will be treated as an ImageTensor.
 @ComfyFunc(my_category)
@@ -133,7 +138,7 @@ def mask_image_with_image(
     image: ImageTensor, image_to_use_as_mask: ImageTensor
 ) -> ImageTensor:
     mask = convert_to_mask(image_to_use_as_mask)
-    return mask_image(image, mask)
+    return example_mask_image(image, mask)
 
 
 # And of course you can use the code in normal Python scripts too.
