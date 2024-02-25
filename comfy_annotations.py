@@ -140,6 +140,10 @@ def get_type_str(the_type) -> str:
     return type_str
 
 
+def get_device():
+    return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+
 def ComfyFunc(
     category: str = default_category,
     display_name: str = None,
@@ -190,18 +194,14 @@ def ComfyFunc(
 
         if debug:
             logger.info(
-                func.__name__,
-                "Is static:",
-                is_static,
-                "Is member:",
-                is_member,
-                "Class method:",
-                is_cls_mth,
+                func.__name__, 
+                "Is static:", is_static,
+                "Is member:", is_member,
+                "Class method:", is_cls_mth,
             )
             logger.info("Required inputs:", required_inputs)
             logger.info(required_inputs, optional_inputs, input_is_list_map)
 
-        
         adjusted_return_types = []
         output_is_list = []
         if return_types is not None:
@@ -222,6 +222,38 @@ def ComfyFunc(
         name_parts = [x.title() for x in func.__name__.split("_")]
         input_is_list = any(input_is_list_map.values())
 
+        def verify_image_tensor(arg, name=""):
+            if isinstance(arg, torch.Tensor):
+                assert len(arg.shape) in [3, 4], f"{wrapped_name}: Image tensor must have BxHxW or BxHxWxC shape, got {arg.shape}"
+                if len(arg.shape) == 4:
+                    assert arg.shape[3] in [1, 3, 4], f"{wrapped_name}: Image tensor must have 1, 3, or 4 channels, got {arg.shape[3]}"
+                if arg.shape[0] > arg.shape[1] or arg.shape[0] > arg.shape[2]:
+                    logging.warning(f"{wrapped_name}: Image tensor {arg.shape} has a larger B dimension than H or W")
+                if arg.shape[1] > arg.shape[2] * 10 or arg.shape[2] > arg.shape[1] * 10:
+                    logging.warning(f"{wrapped_name}: Image tensor {arg.shape} has a very large H or W dimension")
+                
+            elif isinstance(arg, list):
+                for a in arg:
+                    verify_image_tensor(a)
+                    
+        def verify_mask_tensor(arg, name=""):
+            if isinstance(arg, torch.Tensor):
+                assert len(arg.shape) == 3, f"{wrapped_name}: Mask tensor must have BxHxWxC shape, got {arg.shape}"
+                if arg.shape[0] > arg.shape[1] or arg.shape[0] > arg.shape[2]:
+                    logging.warning(f"{wrapped_name}: Image tensor {arg.shape} has a larger B dimension than H or W")
+                if arg.shape[1] > arg.shape[2] * 10 or arg.shape[2] > arg.shape[1] * 10:
+                    logging.warning(f"{wrapped_name}: Image tensor {arg.shape} has a very large H or W dimension")
+            elif isinstance(arg, list):
+                for a in arg:
+                    verify_mask_tensor(a)
+                    
+        def all_to(device, arg):
+            if isinstance(arg, torch.Tensor):
+                return arg.to(device)
+            elif isinstance(arg, list):
+                return [all_to(device, a) for a in arg]
+            return arg
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if debug:
@@ -239,6 +271,18 @@ def ComfyFunc(
                 for key, arg in kwargs.items():
                     logger.info("kwarg", key, type(arg))
 
+            for key, arg in kwargs.items():
+                kwargs[key] = all_to(get_device(), arg)
+
+                # If it's supposed to be an image tensor, verify the dims
+                if ((key in required_inputs and required_inputs[key][0] == "IMAGE") or 
+                    (key in optional_inputs and optional_inputs[key][0] == "IMAGE")):
+                    verify_image_tensor(arg)
+                
+                if ((key in required_inputs and required_inputs[key][0] == "MASK") or 
+                    (key in optional_inputs and optional_inputs[key][0] == "MASK")):
+                    verify_mask_tensor(arg)
+
             # For some reason self still gets passed with class methods.
             if is_cls_mth:
                 args = args[1:]
@@ -254,9 +298,27 @@ def ComfyFunc(
                         kwargs[arg_name] = kwargs[arg_name][0]
 
             result = func(*args, **kwargs)
+            
+            if len(adjusted_return_types) == 0:
+                assert result is None, f"{wrapped_name}: Return value is not None, but no return type specified."
+                return (None,)
+            
             if not isinstance(result, tuple):
-                return (result,)
-            return result
+                result = (result,)                
+            assert len(result) == len(adjusted_return_types), f"{wrapped_name}: Number of return values {len(new_result)} does not match number of return types {len(adjusted_return_types)}"
+
+            new_result = all_to("cpu", list(result))
+            for i, ret in enumerate(result):
+                if debug:
+                    logger.info(f"Result {i} is {type(ret)}")
+
+                # Check dimensions of output tensors
+                if adjusted_return_types[i] == "IMAGE":
+                    verify_image_tensor(ret)
+                if adjusted_return_types[i] == "MASK":
+                    verify_mask_tensor(ret)
+                        
+            return tuple(new_result)
 
         if node_class is None or is_static:
             wrapper = staticmethod(wrapper)
