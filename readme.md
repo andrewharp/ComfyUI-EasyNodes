@@ -43,7 +43,7 @@ To use this module in your ComfyUI project, follow these steps:
     NODE_DISPLAY_NAME_MAPPINGS = {}
 
     # Add the @ComfyFunc nodes.
-    import example.example_nodes
+    import example.example_nodes  # Your module that defines nodes, so that ComfyFunc has a chance to process them.
     import comfy_annotations
     NODE_CLASS_MAPPINGS.update(comfy_annotations.NODE_CLASS_MAPPINGS) 
     NODE_DISPLAY_NAME_MAPPINGS.update(comfy_annotations.NODE_DISPLAY_NAME_MAPPINGS)
