@@ -119,6 +119,7 @@ _ANNOTATION_TO_COMFYUI_TYPE = {
     str: "STRING",
     bool: "BOOLEAN",
     inspect._empty: any_type,
+    AnyType: any_type,
 }
 
 
