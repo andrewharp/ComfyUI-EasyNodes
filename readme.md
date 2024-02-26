@@ -1,8 +1,9 @@
 # ComfyUI Node-Creating Decorator
 
-This module provides an annotation-ingesting decorator, @ComfyFunc, to streamline adding custom node types in [ComfyUI](https://github.com/comfyanonymous/ComfyUI). It processes your function's signature to create a wrapped function and custom node definition required for ComfyUI, eliminating all the boilerplate code. In most cases you can just add a @ComfyFunc("category") decorator to your existing function.
+This module provides an annotation-ingesting decorator, @ComfyFunc, to streamline adding custom node types in [ComfyUI](https://github.com/comfyanonymous/ComfyUI). It processes your function's signature to create a wrapped function and custom node definition required for ComfyUI, eliminating all the boilerplate code.
 
-```
+In most cases you can just add a `@ComfyFunc("category")` decorator to your existing function. For example:
+```python
 from comfy_annotations import ComfyFunc, ImageTensor, MaskTensor
 
 @ComfyFunc("Example category")
@@ -22,6 +23,7 @@ That's it! Now your operation is ready for ComfyUI. More example definitions can
 - **Type Support**: Includes several custom types (`ImageTensor`, `MaskTensor`, `NumberInput`, etc.) to facilitate specific UI controls like sliders, choices, and text inputs.
 - **Dual purpose**: @ComfyFunc-decorated functions remain regular Python functions too.
 - **Automatic list and tuple handling**: Simply annotate the type as e.g. ```list[torch.Tensor]``` and your function will automatically make sure you get passed a list. It will also auto-tuple your return value for you internally (or leave it alone if you just want to copy your existing code).
+- **Init-time checking**: Less scratching your head when your operator doesn't fire off properly later. For example, if you copy-paste a node definition and forget to rename it, @ComfyFunc will alert you immediately about duplicate nodes rather than simply overwriting the earlier definition.
 - **Supports most ComfyUI node definition features**: validate_input, is_output_node, etc can be specified as parameters to the ComfyFunc decorator.
 
 ## Installation
