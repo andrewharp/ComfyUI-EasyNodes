@@ -1,8 +1,9 @@
 # ComfyUI Node-Creating Decorator
 
-This module provides an annotation-ingesting decorator, @ComfyFunc, to streamline adding custom node types in [ComfyUI](https://github.com/comfyanonymous/ComfyUI). It processes your function's signature to create a wrapped function and custom node definition required for ComfyUI, eliminating all the boilerplate code. In most cases you can just add a @ComfyFunc("category") decorator to your existing function.
+This module provides an annotation-ingesting decorator, @ComfyFunc, to streamline adding custom node types in [ComfyUI](https://github.com/comfyanonymous/ComfyUI). It processes your function's signature to create a wrapped function and custom node definition required for ComfyUI, eliminating all the boilerplate code.
 
-```
+In most cases you can just add a `@ComfyFunc("category")` decorator to your existing function. For example:
+```python
 from comfy_annotations import ComfyFunc, ImageTensor, MaskTensor
 
 @ComfyFunc("Example category")
@@ -14,14 +15,17 @@ NODE_CLASS_MAPPINGS.update(comfy_annotations.NODE_CLASS_MAPPINGS)
 NODE_DISPLAY_NAME_MAPPINGS(comfy_annotations.NODE_DISPLAY_NAME_MAPPINGS)
 ```
 
-That's it! Now your operation is ready for ComfyUI. More example definitions can be found in [example/example_nodes.py](example/example_nodes.py).
+That's it! Now your operation is ready for ComfyUI. More example nodes can be found in [here](example/example_nodes.py).
+
+Note that ImageTensor/MaskTensor are just syntactic sugar for semantically differentiating the annotations (allowing ComfyUI to know what plugs into what); your function will still get passed genunine torch.Tensor objects.
 
 ## Features
 
 - **@ComfyFunc Decorator**: Simplifies the declaration of custom nodes with automagic node declaration based on Python type annotations. Existing Python functions can be converted to ComfyUI nodes with a simple "@ComfyFunc()"
-- **Type Support**: Includes several custom types (`ImageTensor`, `MaskTensor`, `NumberInput`, etc.) to facilitate specific UI controls like sliders, choices, and text inputs.
-- **Dual purpose**: @ComfyFunc-decorated functions remain regular Python functions too.
+- **Type Support**: Includes several custom types (`ImageTensor`, `MaskTensor`, `NumberInput`, `Choice`, etc.) to support ComfyUI's connection semantics and UI functionality.
+- **Dual purpose**: @ComfyFunc-decorated functions remain regular Python functions too. You can easily compose more complex nodes from the functions that define simpler ones.
 - **Automatic list and tuple handling**: Simply annotate the type as e.g. ```list[torch.Tensor]``` and your function will automatically make sure you get passed a list. It will also auto-tuple your return value for you internally (or leave it alone if you just want to copy your existing code).
+- **Init-time checking**: Less scratching your head when your operator doesn't fire off properly later. For example, if you copy-paste a node definition and forget to rename it, @ComfyFunc will alert you immediately about duplicate nodes rather than simply overwriting the earlier definition.
 - **Supports most ComfyUI node definition features**: validate_input, is_output_node, etc can be specified as parameters to the ComfyFunc decorator.
 
 ## Installation
