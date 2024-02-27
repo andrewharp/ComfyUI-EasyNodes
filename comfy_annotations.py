@@ -47,27 +47,27 @@ class StringInput(str):
         return {"default": self, "multiline": self.multiline}
 
 
-class NumberInput(int):
+class NumberInput(float):
     def __new__(
         cls,
-        value,
-        min_value=None,
-        max_value=None,
+        default,
+        min=None,
+        max=None,
         step=None,
         round=None,
         display: str = "number",
     ):
-        if min_value is not None and value < min_value:
+        if min is not None and default < min:
             raise ValueError(
-                f"Value {value} is less than the minimum allowed {min_value}."
+                f"Value {default} is less than the minimum allowed {min}."
             )
-        if max_value is not None and value > max_value:
+        if max is not None and default > max:
             raise ValueError(
-                f"Value {value} is greater than the maximum allowed {max_value}."
+                f"Value {default} is greater than the maximum allowed {max}."
             )
-        instance = super().__new__(cls, value)
-        instance.min_value = min_value
-        instance.max_value = max_value
+        instance = super().__new__(cls, default)
+        instance.min = min
+        instance.max = max
         instance.display = display
         instance.step = step
         instance.round = round
@@ -77,8 +77,8 @@ class NumberInput(int):
         metadata = {
             "default": self,
             "display": self.display,
-            "min_value": self.min_value,
-            "max_value": self.max_value,
+            "min": self.min,
+            "max": self.max,
             "step": self.step,
             "round": self.round,
         }
@@ -86,7 +86,7 @@ class NumberInput(int):
         return metadata
 
     def __repr__(self):
-        return f"{super().__repr__()} (Min: {self.min_value}, Max: {self.max_value})"
+        return f"{super().__repr__()} (Min: {self.min}, Max: {self.max})"
 
 
 # Used for type hinting semantics only.
