@@ -95,7 +95,7 @@ To use this module in your ComfyUI project, follow these steps:
     Example:
     ```python
     @ComfyFunc("Utilities")
-    def add_value(the_list: list[ImageTensor], val: int) -> list[int]:
+    def add_value(the_list: list[ImageTensor], val: float) -> list[ImageTensor]:
         return [img + the_value for img in the_list]
     ```
 
