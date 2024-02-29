@@ -110,34 +110,39 @@ class AnyType(str):
 any_type = AnyType("*")
 
 
-_ANNOTATION_TO_COMFYUI_TYPE = {
-    torch.Tensor: "IMAGE",
-    ImageTensor: "IMAGE",
-    MaskTensor: "MASK",
-    int: "INT",
-    float: "FLOAT",
-    str: "STRING",
-    bool: "BOOLEAN",
-    inspect._empty: any_type,
-    AnyType: any_type,
-}
+_ANNOTATION_TO_COMFYUI_TYPE = {}
+_SHOULD_AUTOCONVERT = {}
 
+def get_fully_qualified_name(cls):
+    return f"{cls.__module__}.{cls.__qualname__}"
 
-def register_type(cls, name: str):
-    assert cls not in _ANNOTATION_TO_COMFYUI_TYPE, f"Type {cls} already registered."
-    _ANNOTATION_TO_COMFYUI_TYPE[cls] = name
+def register_type(cls, name: str, should_autoconvert: bool = False):
+    key = get_fully_qualified_name(cls)
+    assert key not in _ANNOTATION_TO_COMFYUI_TYPE, f"Type {cls} already registered."
+    _ANNOTATION_TO_COMFYUI_TYPE[key] = name    
+    _SHOULD_AUTOCONVERT[key] = should_autoconvert
+
+register_type(torch.Tensor, "IMAGE")
+register_type(ImageTensor, "IMAGE")
+register_type(MaskTensor, "MASK")
+register_type(int, "INT")
+register_type(float, "FLOAT")
+register_type(str, "STRING")
+register_type(bool, "BOOLEAN")
+register_type(AnyType, any_type),
 
 
 def get_type_str(the_type) -> str:
-    if the_type not in _ANNOTATION_TO_COMFYUI_TYPE and get_origin(the_type) is list:
+    key = get_fully_qualified_name(the_type)
+    if key not in _ANNOTATION_TO_COMFYUI_TYPE and get_origin(the_type) is list:
         return get_type_str(get_args(the_type)[0])
 
-    if the_type not in _ANNOTATION_TO_COMFYUI_TYPE and the_type is not inspect._empty:
+    if key not in _ANNOTATION_TO_COMFYUI_TYPE and the_type is not inspect._empty:
         logging.warning(
             f"Type '{the_type}' not registered with ComfyUI, treating as wildcard"
         )
 
-    type_str = _ANNOTATION_TO_COMFYUI_TYPE.get(the_type, any_type)
+    type_str = _ANNOTATION_TO_COMFYUI_TYPE.get(key, any_type)
     return type_str
 
 
@@ -189,7 +194,7 @@ def ComfyFunc(
         is_cls_mth = _is_class_method(node_class, func.__name__)
         is_member = node_class is not None and not is_static and not is_cls_mth
 
-        required_inputs, optional_inputs, input_is_list_map = (
+        required_inputs, optional_inputs, input_is_list_map, input_type_map = (
             _infer_input_types_from_annotations(func, is_member, debug)
         )
 
@@ -272,8 +277,16 @@ def ComfyFunc(
                 for key, arg in kwargs.items():
                     logger.info("kwarg", key, type(arg))
 
+            all_inputs = {**required_inputs, **optional_inputs}
+
             for key, arg in kwargs.items():
                 kwargs[key] = all_to(get_device(), arg)
+                
+                if key in all_inputs:
+                    the_type = get_fully_qualified_name(input_type_map[key])
+                    if _SHOULD_AUTOCONVERT.get(the_type, False):
+                        converted_input = input_type_map[key](arg)
+                        kwargs[key] = converted_input
 
                 # If it's supposed to be an image tensor, verify the dims
                 if ((key in required_inputs and required_inputs[key][0] == "IMAGE") or 
@@ -300,18 +313,23 @@ def ComfyFunc(
 
             result = func(*args, **kwargs)
             
-            if len(adjusted_return_types) == 0:
+            num_expected_returns = len(adjusted_return_types)
+            if num_expected_returns == 0:
                 assert result is None, f"{wrapped_name}: Return value is not None, but no return type specified."
                 return (None,)
-            
+
             if not isinstance(result, tuple):
                 result = (result,)                
             assert len(result) == len(adjusted_return_types), f"{wrapped_name}: Number of return values {len(new_result)} does not match number of return types {len(adjusted_return_types)}"
 
+            for i, ret in enumerate(result):
+                if ret is None:
+                    logging.warning(f"Result {i} is None")
+
             new_result = all_to("cpu", list(result))
             for i, ret in enumerate(result):
                 if debug:
-                    logger.info(f"Result {i} is {type(ret)}")
+                    logging.info(f"Result {i} is {type(ret)}")
 
                 # Check dimensions of output tensors
                 if adjusted_return_types[i] == "IMAGE":
@@ -388,6 +406,7 @@ def _infer_input_types_from_annotations(func, skip_first, debug=False):
     Infer input types based on function annotations.
     """
     input_is_list = {}
+    input_type_map = {}
     sig = inspect.signature(func)
     input_types = {}
     optional_input_types = {}
@@ -403,7 +422,10 @@ def _infer_input_types_from_annotations(func, skip_first, debug=False):
         params = params[1:]
 
     for param_name, param in params:
-        input_is_list[param_name] = get_origin(param.annotation) is list
+        origin = get_origin(param.annotation)
+        input_is_list[param_name] = origin is list
+        input_type_map[param_name] = param.annotation
+        
         if debug:
             print("Param default:", param.default)
         comfyui_type = get_type_str(param.annotation)
@@ -412,7 +434,7 @@ def _infer_input_types_from_annotations(func, skip_first, debug=False):
             input_types[param_name] = the_param
         else:
             optional_input_types[param_name] = the_param
-    return input_types, optional_input_types, input_is_list
+    return input_types, optional_input_types, input_is_list, input_type_map
 
 
 def _infer_return_types_from_annotations(func_or_types, debug=False):
