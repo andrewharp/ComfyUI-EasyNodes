@@ -38,13 +38,17 @@ class Choice(str):
 
 
 class StringInput(str):
-    def __new__(cls, value, multiline=False):
+    def __new__(cls, value, multiline=False, force_input=False, optional=False):
         instance = super().__new__(cls, value)
+        instance.value = value
         instance.multiline = multiline
+        instance.force_input = force_input
+        instance.optional = optional
         return instance
 
     def to_dict(self):
-        return {"default": self, "multiline": self.multiline}
+        return {"default": self, "multiline": self.multiline, "display": "input", "forceInput": self.force_input}
+
 
 
 class NumberInput(float):
@@ -56,6 +60,7 @@ class NumberInput(float):
         step=None,
         round=None,
         display: str = "number",
+        optional=False,
     ):
         if min is not None and default < min:
             raise ValueError(
@@ -71,6 +76,7 @@ class NumberInput(float):
         instance.display = display
         instance.step = step
         instance.round = round
+        instance.optional = optional
         return instance
 
     def to_dict(self):
@@ -320,7 +326,8 @@ def ComfyFunc(
 
             if not isinstance(result, tuple):
                 result = (result,)                
-            assert len(result) == len(adjusted_return_types), f"{wrapped_name}: Number of return values {len(new_result)} does not match number of return types {len(adjusted_return_types)}"
+            assert len(result) == len(adjusted_return_types), (
+                f"{wrapped_name}: Number of return values {len(result)} does not match number of return types {len(adjusted_return_types)}")
 
             for i, ret in enumerate(result):
                 if ret is None:
@@ -387,7 +394,7 @@ def _annotate_input(
         if default != inspect.Parameter.empty:
             default_value = default
             if isinstance(default_value, NumberInput):
-                return (type_name, default_value.to_dict()), False
+                return (type_name, default_value.to_dict()), default.optional
         if debug:
             print(f"Default value for {type_name} is {default_value}")
         return (type_name, {"default": default_value, "display": "number"}), has_default
@@ -396,7 +403,7 @@ def _annotate_input(
         if isinstance(default_value, Choice):
             return (default_value.choices,), False
         if isinstance(default_value, StringInput):
-            return (type_name, default_value.to_dict()), False
+            return (type_name, default_value.to_dict()), default.optional
         return (type_name, {"default": default_value}), has_default
     return (type_name,), has_default
 
