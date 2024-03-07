@@ -1,13 +1,20 @@
 import functools
+from hmac import new
 import inspect
 import logging
 
 import inspect
+import os
+from pathlib import Path
+import random
 from typing import Callable, get_args, get_origin
+import numpy as np
 import torch
 import logging
 import inspect
 from enum import Enum
+import folder_paths
+from PIL import Image
 
 default_category = "ComfyFunc"
 
@@ -156,6 +163,30 @@ def get_device():
     return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
+def add_preview(result):
+    assert len(result) >= 1, f"Expected at least 1 result, got {len(result)}"
+    assert isinstance(result[0], torch.Tensor), f"Expected first result to be a tensor, got {type(result[0])}"
+    
+    image = result[0].squeeze(0).permute(0, 1, 2).cpu().numpy()
+    image = Image.fromarray(np.clip(image * 255., 0, 255).astype(np.uint8))
+    
+    folder = Path(folder_paths.get_temp_directory())
+    folder.mkdir(parents=True, exist_ok=True)
+    filename = "_temp_" + ''.join(random.choice("abcdefghijklmnopqrstupvxyz") for x in range(5)) + ".png"
+    full_output_path = folder / filename
+    
+    logging.info(f"Saving image to '{filename}' '{full_output_path}'")
+    image.save(str(full_output_path), compress_level=4)
+    
+    results = []
+    results.append({
+        "filename": filename,
+        "subfolder": "",
+        "type": "temp"
+    })
+    return {"ui": {"images": results}, "result" : result}
+
+
 def ComfyFunc(
     category: str = default_category,
     display_name: str = None,
@@ -166,6 +197,7 @@ def ComfyFunc(
     return_names: list[str] = None,
     validate_inputs: Callable = None,
     is_changed: Callable = None,
+    has_preview: bool = False,
     debug: bool = False,
 ):
     """
@@ -343,8 +375,11 @@ def ComfyFunc(
                     verify_image_tensor(ret)
                 if adjusted_return_types[i] == "MASK":
                     verify_mask_tensor(ret)
-                        
-            return tuple(new_result)
+            new_result = tuple(new_result)
+            if not has_preview:
+                return new_result
+            else:
+                return add_preview(new_result)
 
         if node_class is None or is_static:
             wrapper = staticmethod(wrapper)
