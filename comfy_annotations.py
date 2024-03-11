@@ -1,19 +1,16 @@
 import functools
-from hmac import new
+import importlib
 import inspect
 import logging
-
-import inspect
-import os
-from pathlib import Path
 import random
-from typing import Callable, get_args, get_origin
+import typing
+from enum import Enum
+from pathlib import Path
+from typing import Any, Callable, get_args, get_origin
+
+import folder_paths
 import numpy as np
 import torch
-import logging
-import inspect
-from enum import Enum
-import folder_paths
 from PIL import Image
 
 default_category = "ComfyFunc"
@@ -27,6 +24,9 @@ class AutoDescriptionMode(Enum):
 # If set to AutoDescriptionMode.FULL, the full docstring will be used, whereas
 # AutoDescriptionMode.BRIEF will use only the first line of the docstring.
 docstring_mode = AutoDescriptionMode.FULL
+
+# Whether to automatically verify tensor shapes on input and output.
+verify_tensors = True
 
 
 NODE_CLASS_MAPPINGS = {}
@@ -45,7 +45,7 @@ class Choice(str):
 
 
 class StringInput(str):
-    def __new__(cls, value, multiline=False, force_input=False, optional=False):
+    def __new__(cls, value, multiline=False, force_input=True, optional=False):
         instance = super().__new__(cls, value)
         instance.value = value
         instance.multiline = multiline
@@ -54,8 +54,12 @@ class StringInput(str):
         return instance
 
     def to_dict(self):
-        return {"default": self, "multiline": self.multiline, "display": "input", "forceInput": self.force_input}
-
+        return {
+            "default": self,
+            "multiline": self.multiline,
+            "display": "input",
+            "forceInput": self.force_input,
+        }
 
 
 class NumberInput(float):
@@ -70,9 +74,7 @@ class NumberInput(float):
         optional=False,
     ):
         if min is not None and default < min:
-            raise ValueError(
-                f"Value {default} is less than the minimum allowed {min}."
-            )
+            raise ValueError(f"Value {default} is less than the minimum allowed {min}.")
         if max is not None and default > max:
             raise ValueError(
                 f"Value {default} is greater than the maximum allowed {max}."
@@ -129,10 +131,17 @@ _SHOULD_AUTOCONVERT = {}
 def get_fully_qualified_name(cls):
     return f"{cls.__module__}.{cls.__qualname__}"
 
-def register_type(cls, name: str, should_autoconvert: bool = False):
+def register_type(
+    cls, name: str, should_autoconvert: bool = False, is_auto_register: bool = False
+):
     key = get_fully_qualified_name(cls)
-    assert key not in _ANNOTATION_TO_COMFYUI_TYPE, f"Type {cls} already registered."
-    _ANNOTATION_TO_COMFYUI_TYPE[key] = name    
+    if not is_auto_register:
+        assert key not in _ANNOTATION_TO_COMFYUI_TYPE, f"Type {cls} already registered."
+
+    if key in _ANNOTATION_TO_COMFYUI_TYPE:
+        return
+
+    _ANNOTATION_TO_COMFYUI_TYPE[key] = name
     _SHOULD_AUTOCONVERT[key] = should_autoconvert
 
 register_type(torch.Tensor, "IMAGE")
@@ -165,26 +174,63 @@ def get_device():
 
 def add_preview(result):
     assert len(result) >= 1, f"Expected at least 1 result, got {len(result)}"
-    assert isinstance(result[0], torch.Tensor), f"Expected first result to be a tensor, got {type(result[0])}"
-    
+    assert isinstance(
+        result[0], torch.Tensor
+    ), f"Expected first result to be a tensor, got {type(result[0])}"
+
     image = result[0].squeeze(0).permute(0, 1, 2).cpu().numpy()
-    image = Image.fromarray(np.clip(image * 255., 0, 255).astype(np.uint8))
-    
+    image = Image.fromarray(np.clip(image * 255.0, 0, 255).astype(np.uint8))
+
     folder = Path(folder_paths.get_temp_directory())
     folder.mkdir(parents=True, exist_ok=True)
-    filename = "_temp_" + ''.join(random.choice("abcdefghijklmnopqrstupvxyz") for x in range(5)) + ".png"
+    filename = (
+        "_temp_"
+        + "".join(random.choice("abcdefghijklmnopqrstupvxyz") for x in range(5))
+        + ".png"
+    )
     full_output_path = folder / filename
-    
-    logging.info(f"Saving image to '{filename}' '{full_output_path}'")
+
+    # logging.info(f"Saving image to '{filename}' '{full_output_path}'")
     image.save(str(full_output_path), compress_level=4)
-    
+
     results = []
-    results.append({
-        "filename": filename,
-        "subfolder": "",
-        "type": "temp"
-    })
-    return {"ui": {"images": results}, "result" : result}
+    results.append({"filename": filename, "subfolder": "", "type": "temp"})
+    return {"ui": {"images": results}, "result": result}
+
+
+def verify_tensor(arg, wrapped_name="", tensor_type="", allowed_shapes=None, allowed_dims=None, allowed_channels=None):
+    if not verify_tensors:
+        return
+    
+    if isinstance(arg, torch.Tensor):
+        if allowed_shapes is not None:
+            assert len(arg.shape) in allowed_shapes, f"{wrapped_name}: {tensor_type} tensor must have shape in {allowed_shapes}, got {arg.shape}"
+        if allowed_dims is not None:
+            for i, dim in enumerate(allowed_dims):
+                assert arg.shape[i] <= dim, f"{wrapped_name}: {tensor_type} tensor dimension {i} must be less than or equal to {dim}, got {arg.shape[i]}"
+        if allowed_channels is not None:
+            assert arg.shape[-1] in allowed_channels, f"{wrapped_name}: {tensor_type} tensor must have the number of channels in {allowed_channels}, got {arg.shape[-1]}"
+    elif isinstance(arg, list):
+        for a in arg:
+            verify_tensor(a, wrapped_name=wrapped_name, allowed_shapes=allowed_shapes, allowed_dims=allowed_dims, allowed_channels=allowed_channels)
+
+
+tensor_types = {
+    "IMAGE": {"allowed_shapes": [4], "allowed_dims": None, "allowed_channels": [1, 3, 4]},
+    "MASK": {"allowed_shapes": [3], "allowed_dims": None, "allowed_channels": None},
+    "DEPTH": {"allowed_shapes": [4], "allowed_dims": None, "allowed_channels": [1]}
+}
+
+
+def verify_tensor_type(key, arg, required_inputs, optional_inputs, wrapped_name):
+    for tensor_type, params in tensor_types.items():
+        if (key in required_inputs and required_inputs[key][0] == tensor_type) or (key in optional_inputs and optional_inputs[key][0] == tensor_type):
+            verify_tensor(arg, wrapped_name=wrapped_name, tensor_type=tensor_type, **params)
+
+
+def verify_return_type(ret, return_type, wrapped_name):
+    if return_type in tensor_types:
+        verify_tensor(ret, wrapped_name=wrapped_name, tensor_type=return_type, **tensor_types[return_type])
 
 
 def ComfyFunc(
@@ -237,14 +283,8 @@ def ComfyFunc(
         )
 
         if debug:
-            logger.info(
-                func.__name__, 
-                "Is static:", is_static,
-                "Is member:", is_member,
-                "Class method:", is_cls_mth,
-            )
-            logger.info("Required inputs:", required_inputs)
-            logger.info(required_inputs, optional_inputs, input_is_list_map)
+            logger.info(f"{func.__name__} Is static: {is_static} Is member: {is_member} Class method: {is_cls_mth}")
+            logger.info(f"Required inputs: {required_inputs} optional: {optional_inputs} input_is_list: {input_is_list_map} input_type_map: {input_type_map}")
 
         adjusted_return_types = []
         output_is_list = []
@@ -266,31 +306,6 @@ def ComfyFunc(
         name_parts = [x.title() for x in func.__name__.split("_")]
         input_is_list = any(input_is_list_map.values())
 
-        def verify_image_tensor(arg, name=""):
-            if isinstance(arg, torch.Tensor):
-                assert len(arg.shape) in [3, 4], f"{wrapped_name}: Image tensor must have BxHxW or BxHxWxC shape, got {arg.shape}"
-                if len(arg.shape) == 4:
-                    assert arg.shape[3] in [1, 3, 4], f"{wrapped_name}: Image tensor must have 1, 3, or 4 channels, got {arg.shape[3]}"
-                if arg.shape[0] > arg.shape[1] or arg.shape[0] > arg.shape[2]:
-                    logging.warning(f"{wrapped_name}: Image tensor {arg.shape} has a larger B dimension than H or W")
-                if arg.shape[1] > arg.shape[2] * 10 or arg.shape[2] > arg.shape[1] * 10:
-                    logging.warning(f"{wrapped_name}: Image tensor {arg.shape} has a very large H or W dimension")
-                
-            elif isinstance(arg, list):
-                for a in arg:
-                    verify_image_tensor(a)
-                    
-        def verify_mask_tensor(arg, name=""):
-            if isinstance(arg, torch.Tensor):
-                assert len(arg.shape) == 3, f"{wrapped_name}: Mask tensor must have BxHxWxC shape, got {arg.shape}"
-                if arg.shape[0] > arg.shape[1] or arg.shape[0] > arg.shape[2]:
-                    logging.warning(f"{wrapped_name}: Image tensor {arg.shape} has a larger B dimension than H or W")
-                if arg.shape[1] > arg.shape[2] * 10 or arg.shape[2] > arg.shape[1] * 10:
-                    logging.warning(f"{wrapped_name}: Image tensor {arg.shape} has a very large H or W dimension")
-            elif isinstance(arg, list):
-                for a in arg:
-                    verify_mask_tensor(a)
-                    
         def all_to(device, arg):
             if isinstance(arg, torch.Tensor):
                 return arg.to(device)
@@ -302,38 +317,27 @@ def ComfyFunc(
         def wrapper(*args, **kwargs):
             if debug:
                 logger.info(
-                    func.__name__,
-                    "wrapper called with",
-                    len(args),
-                    "args and",
-                    len(kwargs),
-                    "kwargs. Is cls mth:",
-                    is_cls_mth,
+                    f"Calling {func.__name__} with {len(args)} args and {len(kwargs)} kwargs. Is cls mth: {is_cls_mth}"
                 )
                 for i, arg in enumerate(args):
-                    logger.info("arg", i, type(arg))
+                    logger.info(f"arg {i}: {type(arg)}")
                 for key, arg in kwargs.items():
-                    logger.info("kwarg", key, type(arg))
+                    logger.info(f"kwarg {key}: {type(arg)}")
 
             all_inputs = {**required_inputs, **optional_inputs}
 
             for key, arg in kwargs.items():
                 kwargs[key] = all_to(get_device(), arg)
-                
+
                 if key in all_inputs:
                     the_type = get_fully_qualified_name(input_type_map[key])
                     if _SHOULD_AUTOCONVERT.get(the_type, False):
                         converted_input = input_type_map[key](arg)
                         kwargs[key] = converted_input
 
-                # If it's supposed to be an image tensor, verify the dims
-                if ((key in required_inputs and required_inputs[key][0] == "IMAGE") or 
-                    (key in optional_inputs and optional_inputs[key][0] == "IMAGE")):
-                    verify_image_tensor(arg)
-                
-                if ((key in required_inputs and required_inputs[key][0] == "MASK") or 
-                    (key in optional_inputs and optional_inputs[key][0] == "MASK")):
-                    verify_mask_tensor(arg)
+                verify_tensor_type(
+                    key, arg, required_inputs, optional_inputs, wrapped_name
+                )
 
             # For some reason self still gets passed with class methods.
             if is_cls_mth:
@@ -350,16 +354,17 @@ def ComfyFunc(
                         kwargs[arg_name] = kwargs[arg_name][0]
 
             result = func(*args, **kwargs)
-            
+
             num_expected_returns = len(adjusted_return_types)
             if num_expected_returns == 0:
                 assert result is None, f"{wrapped_name}: Return value is not None, but no return type specified."
                 return (None,)
 
             if not isinstance(result, tuple):
-                result = (result,)                
-            assert len(result) == len(adjusted_return_types), (
-                f"{wrapped_name}: Number of return values {len(result)} does not match number of return types {len(adjusted_return_types)}")
+                result = (result,)
+            assert len(result) == len(
+                adjusted_return_types
+            ), f"{wrapped_name}: Number of return values {len(result)} does not match number of return types {len(adjusted_return_types)}"
 
             for i, ret in enumerate(result):
                 if ret is None:
@@ -370,11 +375,8 @@ def ComfyFunc(
                 if debug:
                     logging.info(f"Result {i} is {type(ret)}")
 
-                # Check dimensions of output tensors
-                if adjusted_return_types[i] == "IMAGE":
-                    verify_image_tensor(ret)
-                if adjusted_return_types[i] == "MASK":
-                    verify_mask_tensor(ret)
+                verify_return_type(ret, adjusted_return_types[i], wrapped_name)
+
             new_result = tuple(new_result)
             if not has_preview:
                 return new_result
@@ -386,7 +388,7 @@ def ComfyFunc(
 
         if is_cls_mth:
             wrapper = classmethod(wrapper)
-            
+
         the_description = description
         if the_description is None and docstring_mode is not AutoDescriptionMode.NONE:
             if func.__doc__:
@@ -440,6 +442,9 @@ def _annotate_input(
         if isinstance(default_value, StringInput):
             return (type_name, default_value.to_dict()), default.optional
         return (type_name, {"default": default_value}), has_default
+    elif type_name in ["BOOLEAN"]:
+        default_value = default if default != inspect.Parameter.empty else False
+        return (type_name, {"default": default_value}), has_default
     return (type_name,), has_default
 
 
@@ -467,7 +472,7 @@ def _infer_input_types_from_annotations(func, skip_first, debug=False):
         origin = get_origin(param.annotation)
         input_is_list[param_name] = origin is list
         input_type_map[param_name] = param.annotation
-        
+
         if debug:
             print("Param default:", param.default)
         comfyui_type = get_type_str(param.annotation)
@@ -526,7 +531,9 @@ def _infer_return_types_from_annotations(func_or_types, debug=False):
     return_types_tuple = tuple(types_mapped)
     output_is_lists_tuple = tuple(output_is_list)
     if debug:
-        print(f"return_types_tuple: '{return_types_tuple}', output_is_lists_tuple: '{output_is_lists_tuple}'")
+        print(
+            f"return_types_tuple: '{return_types_tuple}', output_is_lists_tuple: '{output_is_lists_tuple}'"
+        )
 
     return return_types_tuple, output_is_lists_tuple
 
@@ -621,3 +628,120 @@ def _get_node_class(func):
             node_class = func.__globals__.get(class_name, None)
         return node_class
     return None
+
+
+T = typing.TypeVar("T")
+
+
+def create_dynamic_setter(cls: type, extra_imports: list[str] = []) -> typing.Callable[..., T]:
+    obj = cls()
+    func_name = cls.__name__
+    setter_name = func_name + "_setter"
+    return_type = f"{cls.__module__}.{cls.__name__}"
+
+    properties = {}
+    module_names = set()
+
+    # Collect properties and infer types from their current instantiated values
+    for attr_name in dir(cls):
+        attr = getattr(cls, attr_name, None)
+        if attr and isinstance(attr, property) and attr.fset is not None:
+            current_value = getattr(obj, attr_name, None)
+            prop_type = type(current_value) if current_value is not None else typing.Any
+            properties[attr_name] = (prop_type, current_value)
+
+            logging.error(
+                f"Property '{attr_name}' has type '{prop_type}' and value '{current_value}'"
+            )
+
+            # Automatically register the type and its subtypes, allowing duplicates
+            register_type(
+                prop_type, get_fully_qualified_name(prop_type), is_auto_register=True
+            )
+            if hasattr(prop_type, "__args__"):
+                for subtype in prop_type.__args__:
+                    register_type(
+                        subtype,
+                        get_fully_qualified_name(subtype),
+                        is_auto_register=True,
+                    )
+
+            # Extract module name from the property type
+            module_name = get_fully_qualified_name(prop_type).rsplit(".", 1)[0]
+            if "." in module_name:
+                module_names.add(module_name)
+
+    # Extract module name from the return type
+    return_module = return_type.rsplit(".", 1)[0]
+    if "." in return_module:
+        module_names.add(return_module)
+
+    func_params = []
+    for prop, (prop_type, current_value) in properties.items():
+        if prop_type in [int, float]:
+            func_params.append(
+                f"{prop}: {get_fully_qualified_name(prop_type).replace('builtins.', '')}=NumberInput({current_value})"
+            )
+        elif prop_type == str:
+            func_params.append(
+                f"{prop}: {get_fully_qualified_name(prop_type).replace('builtins.', '')}=StringInput('{current_value}')"
+            )
+        elif prop_type == bool:
+            func_params.append(
+                f"{prop}: {get_fully_qualified_name(prop_type).replace('builtins.', '')}={current_value}"
+            )
+        else:
+            func_params.append(
+                f"{prop}: {get_fully_qualified_name(prop_type).replace('builtins.', '')}=None"
+            )
+
+    func_params_str = ", ".join(func_params)
+
+    # Generate import statements
+    import_statements = [
+        "import typing",
+        *[f"import {module_name}" for module_name in module_names],
+        "import importlib",
+        "from comfy_annotations import NumberInput, StringInput",
+    ]
+    
+    for extra_import in extra_imports:
+        import_statements.append(f"import {extra_import}")
+
+    func_body_lines = [
+        f"module = importlib.import_module('{return_module}')",
+        f"cls = getattr(module, '{func_name}')",
+        "new_obj = cls()",
+        *[
+            f"if {prop} is not None: setattr(new_obj, '{prop}', {prop})"
+            for prop in properties.keys()
+        ],
+        "return new_obj",
+    ]
+    func_body = "\n    ".join(func_body_lines)
+    func_code = (
+        "\n".join(import_statements)
+        + f"\n\ndef {setter_name}({func_params_str}) -> {return_type}:\n    {func_body}"
+    )
+
+    logging.error(f"Creating dynamic setter with code: '{func_code}'")
+
+    globals_dict = {
+        "typing": typing,
+        "importlib": importlib,
+        "NumberInput": NumberInput,
+        "StringInput": StringInput,
+    }
+    locals_dict = {}
+
+    # Update the global namespace with the module names
+    for module_name in module_names:
+        globals_dict[module_name] = importlib.import_module(module_name)
+
+    # Execute the function code
+    exec(func_code, globals_dict, locals_dict)
+
+    # Get the function object from the local namespace
+    func = locals_dict[setter_name]
+
+    return func
