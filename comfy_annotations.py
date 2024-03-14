@@ -8,7 +8,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, get_args, get_origin
 
-import folder_paths
 import numpy as np
 import torch
 from PIL import Image
@@ -45,12 +44,13 @@ class Choice(str):
 
 
 class StringInput(str):
-    def __new__(cls, value, multiline=False, force_input=True, optional=False):
+    def __new__(cls, value, multiline=False, force_input=True, optional=False, hidden=False):
         instance = super().__new__(cls, value)
         instance.value = value
         instance.multiline = multiline
         instance.force_input = force_input
         instance.optional = optional
+        instance.hidden = hidden
         return instance
 
     def to_dict(self):
@@ -173,29 +173,44 @@ def get_device():
 
 
 def add_preview(result):
+     # Only import if we're running in the context of ComfyUI, so as to not
+     # make ComfyUI a requirement for any code that happens to use ComfyUI-Annotations.
+    import folder_paths 
     assert len(result) >= 1, f"Expected at least 1 result, got {len(result)}"
-    assert isinstance(
-        result[0], torch.Tensor
-    ), f"Expected first result to be a tensor, got {type(result[0])}"
 
-    image = result[0].squeeze(0).permute(0, 1, 2).cpu().numpy()
-    image = Image.fromarray(np.clip(image * 255.0, 0, 255).astype(np.uint8))
+    def get_first_result(results):
+        if isinstance(results, tuple) or isinstance(results, list):
+            if len(results) > 0:
+                return get_first_result(results[0])
+            else:
+                return None
+        # logging.info(f"Returning! {results}")
+        return results
+    
+    preview_item = get_first_result(result) 
+    if isinstance(preview_item, str):
+        return {"ui": {"text": [preview_item]}, "result": result}
+    elif isinstance(preview_item,  torch.Tensor):
+        image = preview_item.squeeze(0).permute(0, 1, 2).cpu().numpy()
+        image = Image.fromarray(np.clip(image * 255.0, 0, 255).astype(np.uint8))
 
-    folder = Path(folder_paths.get_temp_directory())
-    folder.mkdir(parents=True, exist_ok=True)
-    filename = (
-        "_temp_"
-        + "".join(random.choice("abcdefghijklmnopqrstupvxyz") for x in range(5))
-        + ".png"
-    )
-    full_output_path = folder / filename
+        folder = Path(folder_paths.get_temp_directory())
+        folder.mkdir(parents=True, exist_ok=True)
+        filename = (
+            "_temp_"
+            + "".join(random.choice("abcdefghijklmnopqrstupvxyz") for x in range(5))
+            + ".png"
+        )
+        full_output_path = folder / filename
 
-    # logging.info(f"Saving image to '{filename}' '{full_output_path}'")
-    image.save(str(full_output_path), compress_level=4)
+        image.save(str(full_output_path), compress_level=4)        
 
-    results = []
-    results.append({"filename": filename, "subfolder": "", "type": "temp"})
-    return {"ui": {"images": results}, "result": result}
+        results = []
+        results.append({"filename": filename, "subfolder": "", "type": "temp"})
+        return {"ui": {"images": results}, "result": result}
+    else:
+        logging.warning("Result is not a string or tensor, not showing preview")
+        return result
 
 
 def verify_tensor(arg, wrapped_name="", tensor_type="", allowed_shapes=None, allowed_dims=None, allowed_channels=None):
@@ -278,7 +293,7 @@ def ComfyFunc(
         is_cls_mth = _is_class_method(node_class, func.__name__)
         is_member = node_class is not None and not is_static and not is_cls_mth
 
-        required_inputs, optional_inputs, input_is_list_map, input_type_map = (
+        required_inputs, hidden_inputs, optional_inputs, input_is_list_map, input_type_map = (
             _infer_input_types_from_annotations(func, is_member, debug)
         )
 
@@ -330,10 +345,12 @@ def ComfyFunc(
                 kwargs[key] = all_to(get_device(), arg)
 
                 if key in all_inputs:
-                    the_type = get_fully_qualified_name(input_type_map[key])
-                    if _SHOULD_AUTOCONVERT.get(the_type, False):
-                        converted_input = input_type_map[key](arg)
-                        kwargs[key] = converted_input
+                    cls = input_type_map[key]
+                    if _SHOULD_AUTOCONVERT.get(get_fully_qualified_name(cls), False):
+                        if isinstance(arg, list):
+                            kwargs[key] = [cls(el) for el in arg]
+                        else:
+                            kwargs[key] = cls(arg)
 
                 verify_tensor_type(
                     key, arg, required_inputs, optional_inputs, wrapped_name
@@ -404,6 +421,7 @@ def ComfyFunc(
             display_name if display_name else " ".join(name_parts),
             workflow_name if workflow_name else "".join(name_parts),
             required_inputs,
+            hidden_inputs,
             optional_inputs,
             input_is_list,
             adjusted_return_types,
@@ -424,28 +442,29 @@ def ComfyFunc(
 
 def _annotate_input(
     type_name, default=inspect.Parameter.empty, debug=False
-) -> tuple[tuple, bool]:
+) -> tuple[tuple, bool, bool]:
     has_default = default != inspect.Parameter.empty
+    hidden = False
     if type_name in ["INT", "FLOAT"]:
         default_value = 0
         if default != inspect.Parameter.empty:
             default_value = default
             if isinstance(default_value, NumberInput):
-                return (type_name, default_value.to_dict()), default.optional
+                return (type_name, default_value.to_dict()), default.optional, hidden
         if debug:
             print(f"Default value for {type_name} is {default_value}")
-        return (type_name, {"default": default_value, "display": "number"}), has_default
+        return (type_name, {"default": default_value, "display": "number"}), has_default, hidden
     elif type_name in ["STRING"]:
         default_value = default if default != inspect.Parameter.empty else ""
         if isinstance(default_value, Choice):
-            return (default_value.choices,), False
+            return (default_value.choices,), False, hidden
         if isinstance(default_value, StringInput):
-            return (type_name, default_value.to_dict()), default.optional
-        return (type_name, {"default": default_value}), has_default
+            return (type_name, default_value.to_dict()), default.optional, default.hidden
+        return (type_name, {"default": default_value}), has_default, hidden
     elif type_name in ["BOOLEAN"]:
         default_value = default if default != inspect.Parameter.empty else False
-        return (type_name, {"default": default_value}), has_default
-    return (type_name,), has_default
+        return (type_name, {"default": default_value}), has_default, hidden
+    return (type_name,), has_default, hidden
 
 
 def _infer_input_types_from_annotations(func, skip_first, debug=False):
@@ -455,7 +474,8 @@ def _infer_input_types_from_annotations(func, skip_first, debug=False):
     input_is_list = {}
     input_type_map = {}
     sig = inspect.signature(func)
-    input_types = {}
+    required_inputs = {}
+    hidden_input_types = {}
     optional_input_types = {}
 
     params = list(sig.parameters.items())
@@ -476,12 +496,19 @@ def _infer_input_types_from_annotations(func, skip_first, debug=False):
         if debug:
             print("Param default:", param.default)
         comfyui_type = get_type_str(param.annotation)
-        the_param, is_optional = _annotate_input(comfyui_type, param.default, debug)
-        if not is_optional:
-            input_types[param_name] = the_param
+        the_param, is_optional, is_hidden = _annotate_input(comfyui_type, param.default, debug)
+        
+        if param_name == "unique_id":
+            hidden_input_types[param_name] = "UNIQUE_ID"
+        elif param_name == "extra_pnginfo":
+            hidden_input_types[param_name] = "EXTRA_PNGINFO"
+        elif not is_optional:
+            required_inputs[param_name] = the_param
+        elif is_hidden:
+            hidden_input_types[param_name] = the_param
         else:
             optional_input_types[param_name] = the_param
-    return input_types, optional_input_types, input_is_list, input_type_map
+    return required_inputs, hidden_input_types, optional_input_types, input_is_list, input_type_map
 
 
 def _infer_return_types_from_annotations(func_or_types, debug=False):
@@ -546,6 +573,7 @@ def _create_comfy_node(
     display_name,
     workflow_name,
     required_inputs,
+    hidden_inputs,
     optional_inputs,
     input_is_list,
     return_types,
@@ -557,7 +585,7 @@ def _create_comfy_node(
     is_changed=None,
     debug=False,
 ):
-    all_inputs = {"required": required_inputs, "optional": optional_inputs}
+    all_inputs = {"required": required_inputs, "hidden": hidden_inputs, "optional": optional_inputs}
 
     # Initial class dictionary setup
     class_dict = {
