@@ -1,4 +1,3 @@
-import dis
 import functools
 import importlib
 import inspect
@@ -765,11 +764,11 @@ def _create_comfy_node(
             node_class not in NODE_CLASS_MAPPINGS.values()
         ), f"Only one method from '{node_class} can be used as a ComfyUI node.'"
 
-        if node_class:
-            for key, value in class_dict.items():
-                setattr(node_class, key, value)
-        else:
-            node_class = type(workflow_name, (object,), class_dict)
+    if node_class:
+        for key, value in class_dict.items():
+            setattr(node_class, key, value)
+    else:
+        node_class = type(workflow_name, (object,), class_dict)
 
     NODE_CLASS_MAPPINGS[workflow_name] = node_class
     NODE_DISPLAY_NAME_MAPPINGS[workflow_name] = display_name
