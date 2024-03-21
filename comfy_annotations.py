@@ -1,18 +1,25 @@
+import dis
 import functools
 import importlib
 import inspect
+import io
 import logging
 import random
+import sys
 import typing
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, get_args, get_origin
+from typing import Callable, Union, get_args, get_origin
 
 import numpy as np
 import torch
 from PIL import Image
 
 default_category = "ComfyFunc"
+
+# Whether or not to reload modules before running the nodes.
+# Useful while developing.
+reload_modules = True
 
 class AutoDescriptionMode(Enum):
     NONE = "none"
@@ -127,24 +134,39 @@ any_type = AnyType("*")
 
 _ANNOTATION_TO_COMFYUI_TYPE = {}
 _SHOULD_AUTOCONVERT = {}
+_DEFAULT_FORCE_INPUT = {}
 
 def get_fully_qualified_name(cls):
     return f"{cls.__module__}.{cls.__qualname__}"
 
 def register_type(
-    cls, name: str, should_autoconvert: bool = False, is_auto_register: bool = False
+    cls, name: str, 
+    should_autoconvert: bool = False, 
+    is_auto_register: bool = False, 
+    force_input: bool = False
 ):
+    """Register a type for ComfyUI annotations.
+
+    Args:
+        cls (type): The type to register.
+        name (str): The name of the type.
+        should_autoconvert (bool, optional): Whether the type should be automatically converted to the expected type before being passed to the wrapped function. Defaults to False.
+        is_auto_register (bool, optional): Whether the type is automatically registered. Defaults to False.
+        force_input (bool, optional): Whether the type should be forced as an input. Defaults to False.
+    """
     key = get_fully_qualified_name(cls)
-    if not is_auto_register:
-        assert key not in _ANNOTATION_TO_COMFYUI_TYPE, f"Type {cls} already registered."
+    # if not is_auto_register:
+    #     assert key not in _ANNOTATION_TO_COMFYUI_TYPE, f"Type {cls} already registered."
 
     if key in _ANNOTATION_TO_COMFYUI_TYPE:
         return
 
     _ANNOTATION_TO_COMFYUI_TYPE[key] = name
     _SHOULD_AUTOCONVERT[key] = should_autoconvert
+    _DEFAULT_FORCE_INPUT[key] = force_input
 
-register_type(torch.Tensor, "IMAGE")
+
+register_type(torch.Tensor, "TENSOR")
 register_type(ImageTensor, "IMAGE")
 register_type(MaskTensor, "MASK")
 register_type(int, "INT")
@@ -175,7 +197,7 @@ def get_device():
 def add_preview(result):
      # Only import if we're running in the context of ComfyUI, so as to not
      # make ComfyUI a requirement for any code that happens to use ComfyUI-Annotations.
-    import folder_paths 
+    import folder_paths
     assert len(result) >= 1, f"Expected at least 1 result, got {len(result)}"
 
     def get_first_result(results):
@@ -213,21 +235,21 @@ def add_preview(result):
         return result
 
 
-def verify_tensor(arg, wrapped_name="", tensor_type="", allowed_shapes=None, allowed_dims=None, allowed_channels=None):
+def verify_tensor(arg, tensor_name="", tensor_type="", allowed_shapes=None, allowed_dims=None, allowed_channels=None) -> bool:
     if not verify_tensors:
-        return
+        return True
     
     if isinstance(arg, torch.Tensor):
         if allowed_shapes is not None:
-            assert len(arg.shape) in allowed_shapes, f"{wrapped_name}: {tensor_type} tensor must have shape in {allowed_shapes}, got {arg.shape}"
+            assert len(arg.shape) in allowed_shapes, f"{tensor_name}: {tensor_type} tensor must have shape in {allowed_shapes}, got {arg.shape}"
         if allowed_dims is not None:
             for i, dim in enumerate(allowed_dims):
-                assert arg.shape[i] <= dim, f"{wrapped_name}: {tensor_type} tensor dimension {i} must be less than or equal to {dim}, got {arg.shape[i]}"
+                assert arg.shape[i] <= dim, f"{tensor_name}: {tensor_type} tensor dimension {i} must be less than or equal to {dim}, got {arg.shape[i]}"
         if allowed_channels is not None:
-            assert arg.shape[-1] in allowed_channels, f"{wrapped_name}: {tensor_type} tensor must have the number of channels in {allowed_channels}, got {arg.shape[-1]}"
+            assert arg.shape[-1] in allowed_channels, f"{tensor_name}: {tensor_type} tensor must have the number of channels in {allowed_channels}, got {arg.shape[-1]}"
     elif isinstance(arg, list):
         for a in arg:
-            verify_tensor(a, wrapped_name=wrapped_name, allowed_shapes=allowed_shapes, allowed_dims=allowed_dims, allowed_channels=allowed_channels)
+            return verify_tensor(a, tensor_name=tensor_name, allowed_shapes=allowed_shapes, allowed_dims=allowed_dims, allowed_channels=allowed_channels)
 
 
 tensor_types = {
@@ -237,15 +259,143 @@ tensor_types = {
 }
 
 
-def verify_tensor_type(key, arg, required_inputs, optional_inputs, wrapped_name):
+def verify_tensor_type(key, arg, required_inputs, optional_inputs, tensor_name):
     for tensor_type, params in tensor_types.items():
         if (key in required_inputs and required_inputs[key][0] == tensor_type) or (key in optional_inputs and optional_inputs[key][0] == tensor_type):
-            verify_tensor(arg, wrapped_name=wrapped_name, tensor_type=tensor_type, **params)
+            return verify_tensor(arg, tensor_name=tensor_name, tensor_type=tensor_type, **params)
+    return True
 
 
-def verify_return_type(ret, return_type, wrapped_name):
+def verify_return_type(ret, return_type, tensor_name):
     if return_type in tensor_types:
-        verify_tensor(ret, wrapped_name=wrapped_name, tensor_type=return_type, **tensor_types[return_type])
+        return verify_tensor(ret, tensor_name=tensor_name, tensor_type=return_type, **tensor_types[return_type])
+    return True
+
+
+def all_to(device, arg):
+    if isinstance(arg, torch.Tensor):
+        return arg.to(device)
+    elif isinstance(arg, list):
+        return [all_to(device, a) for a in arg]
+    return arg
+
+
+class ReturnInfo(Exception):
+    def init(self, line_number):
+        self.line_number = line_number
+
+
+def image_info(image: Union[torch.Tensor, np.ndarray], label: str=None) -> str:
+    if isinstance(image, torch.Tensor):
+        return (f"shape={image.shape} dtype={image.dtype} min={image.min()} max={image.max()}"
+              + f" mean={image.mean()} sum={image.sum()} device={image.device}")
+    elif isinstance(image, np.ndarray):
+        return f"shape={image.shape}, dtype={image.dtype}, min={image.min()}, max={image.max()} mean={image.mean()} sum={image.sum()} "
+
+
+class BufferHandler(logging.Handler):
+    def __init__(self, buffer):
+        logging.Handler.__init__(self)
+        self.buffer = buffer
+    
+    def emit(self, record):
+        msg = self.format(record)
+        self.buffer.write(msg + '\n')
+
+
+class Tee(object):
+    def __init__(self, *files):
+        self.files = files
+    
+    def write(self, obj):
+        for f in self.files:
+            f.write(obj)
+    
+    def flush(self):
+        for f in self.files:
+            f.flush()
+
+already_initialized = False
+
+def call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name, return_names=None):
+    try_count = 0
+    max_tries = 1
+    global already_initialized
+    already_initialized = True
+
+    while try_count < max_tries:
+        module_name = func.__module__
+
+        reloaded = False
+        
+        if module_name and reload_modules:
+            module = importlib.import_module(module_name)
+            
+            if hasattr(module, func.__name__):        
+                importlib.reload(module)
+                func = getattr(module, func.__name__)
+                logging.debug(f"Reloaded function {func.__name__} from module {module_name}")
+                reloaded = True
+        
+        try_count += 1
+        try:
+            return_line_number = func.__code__.co_firstlineno
+            
+            node_logger = logging.getLogger()
+            node_logger.setLevel(logging.INFO)
+            buffer = io.StringIO()
+            buffer_handler = BufferHandler(buffer)
+            node_logger.addHandler(buffer_handler)
+            buffer_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+            
+            sys.stdout = Tee(sys.stdout, buffer)
+            
+            result = func(*args, **kwargs)
+            
+            code_origin_loc = f"\n Source: {func.__qualname__} {func.__code__.co_filename}:{return_line_number}"
+    
+            num_expected_returns = len(adjusted_return_types)
+            if num_expected_returns == 0:
+                assert result is None, f"{wrapped_name}: Return value is not None, but no return type specified.\n{code_origin_loc}"
+                return (None,)
+
+            if not isinstance(result, tuple):
+                result = (result,)
+            assert len(result) == len(
+                adjusted_return_types
+            ), f"{wrapped_name}: Number of return values {len(result)} does not match number of return types {len(adjusted_return_types)}\n{code_origin_loc}"
+
+            for i, ret in enumerate(result):
+                if ret is None:
+                    logging.warning(f"Result {i} is None")
+            
+            new_result = all_to("cpu", list(result))
+            for i, ret in enumerate(result):
+                if debug:
+                    logging.info(f"Result {i} is {type(ret)}")
+                try:
+                    name = f"'{return_names[i]}'" if return_names else f"return_{i}"
+                    verify_return_type(ret, adjusted_return_types[i], name)
+                except Exception as e:
+                    raise ValueError(f"Error verifying OUTPUT tensor {str(e)}\n{code_origin_loc}") from None
+
+            return tuple(new_result)
+                
+        except Exception as e:
+            if not reloaded:
+                logging.warning("Wasn't able to reload function from module, so no llm debugging")
+                raise e
+            if try_count == max_tries:
+                logging.info("Out of tries, raising exception")
+                raise e
+
+        finally:
+            node_logger.removeHandler(buffer_handler)
+            sys.stdout = sys.__stdout__
+            if buffer:
+                buffer.close()
+    assert False, "Should never reach this point"
+    
 
 
 def ComfyFunc(
@@ -260,6 +410,7 @@ def ComfyFunc(
     is_changed: Callable = None,
     has_preview: bool = False,
     debug: bool = False,
+    automatic_debugging: bool = True,    
 ):
     """
     Decorator function for creating ComfyUI nodes.
@@ -280,6 +431,8 @@ def ComfyFunc(
     """
     def decorator(func):
         wrapped_name = func.__qualname__ + "_comfyfunc_wrapper"
+        code_origin_loc = f"\n Source: {func.__qualname__} {func.__code__.co_filename}:{func.__code__.co_firstlineno}"
+        
         if debug:
             logger = logging.getLogger(wrapped_name)
             logger.info(
@@ -320,19 +473,13 @@ def ComfyFunc(
         force_output = len(adjusted_return_types) == 0
         name_parts = [x.title() for x in func.__name__.split("_")]
         input_is_list = any(input_is_list_map.values())
-
-        def all_to(device, arg):
-            if isinstance(arg, torch.Tensor):
-                return arg.to(device)
-            elif isinstance(arg, list):
-                return [all_to(device, a) for a in arg]
-            return arg
+        
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if debug:
                 logger.info(
-                    f"Calling {func.__name__} with {len(args)} args and {len(kwargs)} kwargs. Is cls mth: {is_cls_mth}"
+                    f"Calling {func.__name__} with {len(args)} args and {len(kwargs)} kwargs. Is class method: {is_cls_mth}"
                 )
                 for i, arg in enumerate(args):
                     logger.info(f"arg {i}: {type(arg)}")
@@ -341,6 +488,7 @@ def ComfyFunc(
 
             all_inputs = {**required_inputs, **optional_inputs}
 
+            input_desc = []
             for key, arg in kwargs.items():
                 kwargs[key] = all_to(get_device(), arg)
 
@@ -351,10 +499,18 @@ def ComfyFunc(
                             kwargs[key] = [cls(el) for el in arg]
                         else:
                             kwargs[key] = cls(arg)
+                
+                if isinstance(arg, torch.Tensor):
+                    input_desc.append(f"{key} ({get_fully_qualified_name(type(arg))}): {image_info(arg)}")
+                else:
+                    input_desc.append(f"{key} ({get_fully_qualified_name(type(arg))}): {arg}")
 
-                verify_tensor_type(
-                    key, arg, required_inputs, optional_inputs, wrapped_name
-                )
+                try:
+                    verify_tensor_type(
+                        key, arg, required_inputs, optional_inputs, tensor_name=f"'{key}'"
+                    )
+                except Exception as e:
+                    raise ValueError(f"Error verifying INPUT tensor {str(e)}\n{code_origin_loc}") from None
 
             # For some reason self still gets passed with class methods.
             if is_cls_mth:
@@ -370,35 +526,13 @@ def ComfyFunc(
                         assert len(kwargs[arg_name]) == 1
                         kwargs[arg_name] = kwargs[arg_name][0]
 
-            result = func(*args, **kwargs)
+            result = call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name,
+                                                     return_names=return_names)
 
-            num_expected_returns = len(adjusted_return_types)
-            if num_expected_returns == 0:
-                assert result is None, f"{wrapped_name}: Return value is not None, but no return type specified."
-                return (None,)
-
-            if not isinstance(result, tuple):
-                result = (result,)
-            assert len(result) == len(
-                adjusted_return_types
-            ), f"{wrapped_name}: Number of return values {len(result)} does not match number of return types {len(adjusted_return_types)}"
-
-            for i, ret in enumerate(result):
-                if ret is None:
-                    logging.warning(f"Result {i} is None")
-
-            new_result = all_to("cpu", list(result))
-            for i, ret in enumerate(result):
-                if debug:
-                    logging.info(f"Result {i} is {type(ret)}")
-
-                verify_return_type(ret, adjusted_return_types[i], wrapped_name)
-
-            new_result = tuple(new_result)
             if not has_preview:
-                return new_result
+                return result
             else:
-                return add_preview(new_result)
+                return add_preview(result)
 
         if node_class is None or is_static:
             wrapper = staticmethod(wrapper)
@@ -441,30 +575,41 @@ def ComfyFunc(
 
 
 def _annotate_input(
-    type_name, default=inspect.Parameter.empty, debug=False
+    annotation, default=inspect.Parameter.empty, debug=False
 ) -> tuple[tuple, bool, bool]:
+    type_name = get_type_str(annotation)
     has_default = default != inspect.Parameter.empty
     hidden = False
+    
+    metadata = {}
+    
+    if _DEFAULT_FORCE_INPUT.get(get_fully_qualified_name(annotation), False):
+        metadata["forceInput"] = True
+    
     if type_name in ["INT", "FLOAT"]:
         default_value = 0
         if default != inspect.Parameter.empty:
             default_value = default
             if isinstance(default_value, NumberInput):
-                return (type_name, default_value.to_dict()), default.optional, hidden
+                metadata.update(default_value.to_dict())
+                has_default = default.optional
         if debug:
             print(f"Default value for {type_name} is {default_value}")
-        return (type_name, {"default": default_value, "display": "number"}), has_default, hidden
+        metadata.update({"default": default_value, "display": "number"})
+        
     elif type_name in ["STRING"]:
         default_value = default if default != inspect.Parameter.empty else ""
         if isinstance(default_value, Choice):
             return (default_value.choices,), False, hidden
         if isinstance(default_value, StringInput):
             return (type_name, default_value.to_dict()), default.optional, default.hidden
-        return (type_name, {"default": default_value}), has_default, hidden
+        metadata.update({"default": default_value})
+        
     elif type_name in ["BOOLEAN"]:
         default_value = default if default != inspect.Parameter.empty else False
-        return (type_name, {"default": default_value}), has_default, hidden
-    return (type_name,), has_default, hidden
+        metadata.update({"default": default_value})
+        
+    return (type_name, metadata), has_default, hidden
 
 
 def _infer_input_types_from_annotations(func, skip_first, debug=False):
@@ -495,8 +640,8 @@ def _infer_input_types_from_annotations(func, skip_first, debug=False):
 
         if debug:
             print("Param default:", param.default)
-        comfyui_type = get_type_str(param.annotation)
-        the_param, is_optional, is_hidden = _annotate_input(comfyui_type, param.default, debug)
+
+        the_param, is_optional, is_hidden = _annotate_input(param.annotation, param.default, debug)
         
         if param_name == "unique_id":
             hidden_input_types[param_name] = "UNIQUE_ID"
@@ -609,21 +754,22 @@ def _create_comfy_node(
         for key, value in class_dict.items():
             logger.info(f"{key}: {value}")
 
-    assert (
-        workflow_name not in NODE_CLASS_MAPPINGS
-    ), f"Node class '{workflow_name} ({cname})' already exists!"
-    assert (
-        display_name not in NODE_DISPLAY_NAME_MAPPINGS.values()
-    ), f"Display name '{display_name}' already exists!"
-    assert (
-        node_class not in NODE_CLASS_MAPPINGS.values()
-    ), f"Only one method from '{node_class} can be used as a ComfyUI node.'"
+    if not already_initialized:
+        assert (
+            workflow_name not in NODE_CLASS_MAPPINGS
+        ), f"Node class '{workflow_name} ({cname})' already exists!"
+        assert (
+            display_name not in NODE_DISPLAY_NAME_MAPPINGS.values()
+        ), f"Display name '{display_name}' already exists!"
+        assert (
+            node_class not in NODE_CLASS_MAPPINGS.values()
+        ), f"Only one method from '{node_class} can be used as a ComfyUI node.'"
 
-    if node_class:
-        for key, value in class_dict.items():
-            setattr(node_class, key, value)
-    else:
-        node_class = type(workflow_name, (object,), class_dict)
+        if node_class:
+            for key, value in class_dict.items():
+                setattr(node_class, key, value)
+        else:
+            node_class = type(workflow_name, (object,), class_dict)
 
     NODE_CLASS_MAPPINGS[workflow_name] = node_class
     NODE_DISPLAY_NAME_MAPPINGS[workflow_name] = display_name
@@ -661,7 +807,15 @@ def _get_node_class(func):
 T = typing.TypeVar("T")
 
 
-def create_dynamic_setter(cls: type, extra_imports: list[str] = []) -> typing.Callable[..., T]:
+def register_setter(cls: type, category=default_category, extra_imports: list[str] = [], debug=False) -> typing.Callable[..., T]:
+    if debug:
+        logging.info(f"Registering setter for class '{cls.__name__}'")
+    register_type(cls, name=cls.__name__)
+    ComfyFunc(category, display_name=cls.__name__, workflow_name=cls.__name__, debug=debug)(
+        create_dynamic_setter(cls, extra_imports=extra_imports))
+
+
+def create_dynamic_setter(cls: type, extra_imports: list[str] = [], debug=False) -> typing.Callable[..., T]:
     obj = cls()
     func_name = cls.__name__
     setter_name = func_name + "_setter"
@@ -678,9 +832,10 @@ def create_dynamic_setter(cls: type, extra_imports: list[str] = []) -> typing.Ca
             prop_type = type(current_value) if current_value is not None else typing.Any
             properties[attr_name] = (prop_type, current_value)
 
-            logging.error(
-                f"Property '{attr_name}' has type '{prop_type}' and value '{current_value}'"
-            )
+            if debug:
+                logging.info(
+                    f"Property '{attr_name}' has type '{prop_type}' and value '{current_value}'"
+                )
 
             # Automatically register the type and its subtypes, allowing duplicates
             register_type(
@@ -752,7 +907,8 @@ def create_dynamic_setter(cls: type, extra_imports: list[str] = []) -> typing.Ca
         + f"\n\ndef {setter_name}({func_params_str}) -> {return_type}:\n    {func_body}"
     )
 
-    logging.error(f"Creating dynamic setter with code: '{func_code}'")
+    if debug:
+        logging.info(f"Creating dynamic setter with code: '{func_code}'")
 
     globals_dict = {
         "typing": typing,
