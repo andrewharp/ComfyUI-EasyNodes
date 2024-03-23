@@ -78,6 +78,7 @@ class NumberInput(float):
         round=None,
         display: str = "number",
         optional=False,
+        hidden=False,
     ):
         if min is not None and default < min:
             raise ValueError(f"Value {default} is less than the minimum allowed {min}.")
@@ -92,6 +93,7 @@ class NumberInput(float):
         instance.step = step
         instance.round = round
         instance.optional = optional
+        instance.hidden = hidden
         return instance
 
     def to_dict(self):
@@ -349,7 +351,9 @@ def call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjus
             
             sys.stdout = Tee(sys.stdout, buffer)
             
+            logging.info(f"-------- Running {wrapped_name} --------")
             result = func(*args, **kwargs)
+            logging.info(f"-------- Finished {wrapped_name} --------")
             
             code_origin_loc = f"\n Source: {func.__qualname__} {func.__code__.co_filename}:{return_line_number}"
     
@@ -577,38 +581,30 @@ def _annotate_input(
     annotation, default=inspect.Parameter.empty, debug=False
 ) -> tuple[tuple, bool, bool]:
     type_name = get_type_str(annotation)
-    has_default = default != inspect.Parameter.empty
-    hidden = False
-    
+        
+    if isinstance(default, Choice):
+        return (default.choices,), False, False
+    if isinstance(default, StringInput) or isinstance(default, NumberInput):
+        return (type_name, default.to_dict()), default.optional, default.hidden
+
     metadata = {}
+    if default is None:
+        # If the user specified None explicitly, assume they're ok with it being optional.
+        metadata["optional"] = True
+        metadata["forceInput"] = True        
+    elif default == inspect.Parameter.empty:
+        # If they didn't give it a default value at all, then forceInput so that the UI
+        # doesn't end up giving them a default that they may not want.
+        metadata["forceInput"] = True
+    else:
+        metadata["default"] = default
     
+    # This is the exception where they may have given it a default, but we still
+    # want to force it as an input because changing that value will be rare.
     if _DEFAULT_FORCE_INPUT.get(get_fully_qualified_name(annotation), False):
         metadata["forceInput"] = True
-    
-    if type_name in ["INT", "FLOAT"]:
-        default_value = 0
-        if default != inspect.Parameter.empty:
-            default_value = default
-            if isinstance(default_value, NumberInput):
-                metadata.update(default_value.to_dict())
-                has_default = default.optional
-        if debug:
-            print(f"Default value for {type_name} is {default_value}")
-        metadata.update({"default": default_value, "display": "number"})
-        
-    elif type_name in ["STRING"]:
-        default_value = default if default != inspect.Parameter.empty else ""
-        if isinstance(default_value, Choice):
-            return (default_value.choices,), False, hidden
-        if isinstance(default_value, StringInput):
-            return (type_name, default_value.to_dict()), default.optional, default.hidden
-        metadata.update({"default": default_value})
-        
-    elif type_name in ["BOOLEAN"]:
-        default_value = default if default != inspect.Parameter.empty else False
-        metadata.update({"default": default_value})
-        
-    return (type_name, metadata), has_default, hidden
+
+    return (type_name, metadata), default != inspect.Parameter.empty, False
 
 
 def _infer_input_types_from_annotations(func, skip_first, debug=False):
