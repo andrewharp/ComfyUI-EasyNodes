@@ -3,12 +3,15 @@ import importlib
 import inspect
 import io
 import logging
+import os
 import random
 import sys
 import typing
 from enum import Enum
 from pathlib import Path
 from typing import Callable, Union, get_args, get_origin
+
+from colorama import Fore
 
 import numpy as np
 import torch
@@ -30,10 +33,24 @@ class AutoDescriptionMode(Enum):
 # AutoDescriptionMode.BRIEF will use only the first line of the docstring.
 docstring_mode = AutoDescriptionMode.FULL
 
-# Whether to automatically verify tensor shapes on input and output.
+# Whether to automatically verify tensor shapes on input and output for common tensor
+# types like images and masks.
 verify_tensors = True
 
 
+# Function to call when an exception is raised during node execution.
+process_exception_logic = None
+
+
+# Maximum number of times to retry a node if it fails. Useful for iterative debugging.
+max_tries = 1
+
+
+already_initialized = False
+module_reload_times = {}
+
+
+# For ComfyUI to pick up.
 NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}
 
@@ -50,7 +67,7 @@ class Choice(str):
 
 
 class StringInput(str):
-    def __new__(cls, value, multiline=False, force_input=True, optional=False, hidden=False):
+    def __new__(cls, value, multiline=False, force_input=False, optional=False, hidden=False):
         instance = super().__new__(cls, value)
         instance.value = value
         instance.multiline = multiline
@@ -61,7 +78,7 @@ class StringInput(str):
 
     def to_dict(self):
         return {
-            "default": self,
+            "default": self.value,
             "multiline": self.multiline,
             "display": "input",
             "forceInput": self.force_input,
@@ -134,7 +151,7 @@ any_type = AnyType("*")
 
 
 _ANNOTATION_TO_COMFYUI_TYPE = {}
-_SHOULD_AUTOCONVERT = {}
+_SHOULD_AUTOCONVERT = {"str": True}
 _DEFAULT_FORCE_INPUT = {}
 
 def get_fully_qualified_name(cls):
@@ -214,7 +231,7 @@ def add_preview(result):
     if isinstance(preview_item, str):
         return {"ui": {"text": [preview_item]}, "result": result}
     elif isinstance(preview_item,  torch.Tensor):
-        image = preview_item.squeeze(0).permute(0, 1, 2).cpu().numpy()
+        image = preview_item[0].cpu().numpy()
         image = Image.fromarray(np.clip(image * 255.0, 0, 255).astype(np.uint8))
 
         folder = Path(folder_paths.get_temp_directory())
@@ -288,6 +305,8 @@ class ReturnInfo(Exception):
 
 def image_info(image: Union[torch.Tensor, np.ndarray], label: str=None) -> str:
     if isinstance(image, torch.Tensor):
+        if image.dtype == torch.bool:
+            return (f"shape={image.shape} dtype={image.dtype} device={image.device}")
         return (f"shape={image.shape} dtype={image.dtype} min={image.min()} max={image.max()}"
               + f" mean={image.mean()} sum={image.sum()} device={image.device}")
     elif isinstance(image, np.ndarray):
@@ -316,47 +335,51 @@ class Tee(object):
         for f in self.files:
             f.flush()
 
-already_initialized = False
+
+def maybe_reload_module(func: callable):
+    module_name = func.__module__
+    if not module_name or not reload_modules:
+        return False, func
+    
+    module = importlib.import_module(module_name)
+    module_file = module.__file__
+    
+    current_modified_time = os.path.getmtime(module_file)
+    
+    if current_modified_time > module_reload_times.get(module_name, 0):
+        if hasattr(module, func.__name__):
+            importlib.reload(module)
+            logging.info(f"{Fore.GREEN}Reloaded module {module_name}{Fore.RESET}")
+            module_reload_times[module_name] = current_modified_time
+            return True, getattr(module, func.__name__)
+    return False, func
+
 
 def call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name, return_names=None):
     try_count = 0
-    max_tries = 1
     global already_initialized
     already_initialized = True
 
     while try_count < max_tries:
-        module_name = func.__module__
+        reloaded, func = maybe_reload_module(func)
 
-        reloaded = False
-        
-        if module_name and reload_modules:
-            module = importlib.import_module(module_name)
-            
-            if hasattr(module, func.__name__):        
-                importlib.reload(module)
-                func = getattr(module, func.__name__)
-                logging.debug(f"Reloaded function {func.__name__} from module {module_name}")
-                reloaded = True
-        
         try_count += 1
         try:
+            # Rest of the code remains the same
             return_line_number = func.__code__.co_firstlineno
-            
             node_logger = logging.getLogger()
             node_logger.setLevel(logging.INFO)
             buffer = io.StringIO()
             buffer_handler = BufferHandler(buffer)
             node_logger.addHandler(buffer_handler)
             buffer_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
-            
             sys.stdout = Tee(sys.stdout, buffer)
-            
-            logging.info(f"-------- Running {wrapped_name} --------")
+
+            # logging.info(f"-------- Running {wrapped_name} --------")
             result = func(*args, **kwargs)
-            logging.info(f"-------- Finished {wrapped_name} --------")
-            
+            # logging.info(f"-------- Finished {wrapped_name} --------")
+
             code_origin_loc = f"\n Source: {func.__qualname__} {func.__code__.co_filename}:{return_line_number}"
-    
             num_expected_returns = len(adjusted_return_types)
             if num_expected_returns == 0:
                 assert result is None, f"{wrapped_name}: Return value is not None, but no return type specified.\n{code_origin_loc}"
@@ -371,7 +394,7 @@ def call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjus
             for i, ret in enumerate(result):
                 if ret is None:
                     logging.warning(f"Result {i} is None")
-            
+
             new_result = all_to("cpu", list(result))
             for i, ret in enumerate(result):
                 if debug:
@@ -383,7 +406,7 @@ def call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjus
                     raise ValueError(f"Error verifying OUTPUT tensor {str(e)}\n{code_origin_loc}") from None
 
             return tuple(new_result)
-                
+
         except Exception as e:
             if not reloaded:
                 logging.warning("Wasn't able to reload function from module, so no llm debugging")
@@ -391,14 +414,18 @@ def call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjus
             if try_count == max_tries:
                 logging.info("Out of tries, raising exception")
                 raise e
+            
+            if process_exception_logic:
+                process_exception_logic(func, e, input_desc, buffer)
 
         finally:
             node_logger.removeHandler(buffer_handler)
             sys.stdout = sys.__stdout__
             if buffer:
                 buffer.close()
+
     assert False, "Should never reach this point"
-    
+
 
 
 def ComfyFunc(
@@ -413,6 +440,7 @@ def ComfyFunc(
     is_changed: Callable = None,
     has_preview: bool = False,
     debug: bool = False,
+    color: str = None,
     automatic_debugging: bool = True,    
 ):
     """
@@ -434,7 +462,8 @@ def ComfyFunc(
     """
     def decorator(func):
         wrapped_name = func.__qualname__ + "_comfyfunc_wrapper"
-        code_origin_loc = f"\n Source: {func.__qualname__} {func.__code__.co_filename}:{func.__code__.co_firstlineno}"
+        source_location = f"{func.__code__.co_filename}:{func.__code__.co_firstlineno}"
+        code_origin_loc = f"\n Source: {func.__qualname__} {source_location}"
         
         if debug:
             logger = logging.getLogger(wrapped_name)
@@ -477,7 +506,6 @@ def ComfyFunc(
         name_parts = [x.title() for x in func.__name__.split("_")]
         input_is_list = any(input_is_list_map.values())
         
-
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if debug:
@@ -544,8 +572,9 @@ def ComfyFunc(
             wrapper = classmethod(wrapper)
 
         the_description = description
-        if the_description is None and docstring_mode is not AutoDescriptionMode.NONE:
-            if func.__doc__:
+        if the_description is None:
+            the_description = ""
+            if docstring_mode is not AutoDescriptionMode.NONE and func.__doc__:
                 the_description = func.__doc__.strip()
                 if docstring_mode == AutoDescriptionMode.BRIEF:
                     the_description = the_description.split("\n")[0]
@@ -568,7 +597,9 @@ def ComfyFunc(
             is_output_node=is_output_node or force_output,
             validate_inputs=validate_inputs,
             is_changed=is_changed,
+            color=color,
             debug=debug,
+            source_location=source_location,
         )
 
         # Return the original function so it can still be used as normal (only ComfyUI sees the wrapper function).
@@ -723,9 +754,29 @@ def _create_comfy_node(
     is_output_node=False,
     validate_inputs=None,
     is_changed=None,
+    color=None,
+    source_location=None,
     debug=False,
 ):
     all_inputs = {"required": required_inputs, "hidden": hidden_inputs, "optional": optional_inputs}
+      
+    # Smuggle the color in with the description. Bit of a hack,
+    # but afaict there's no way to pass it directly.
+    if color is not None:
+        assert color.startswith("#"), "Color must be a hex color code"
+        assert len(color) == 7, "Color must be a hex color code"
+        assert all(c in "0123456789ABCDEF" for c in color[1:]), "Color must be a hex color code"
+        
+        # Turn it into floating point
+        color = color[1:]
+        color = [int(color[i:i+2], 16) / 255.0 for i in (0, 2, 4)]
+        bgcolor = [c * 0.6 for c in color]
+        hex_bg_color = "#" + "".join(f"{int(c * 255):02X}" for c in bgcolor)
+        
+        description += f"\n\nComfyUINodeColor={color}\nComfyUINodeBgColor={hex_bg_color}"
+
+    if source_location is not None:
+        description += f"\n\nNodeSource={source_location}"
 
     # Initial class dictionary setup
     class_dict = {
