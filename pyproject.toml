@@ -8,7 +8,7 @@ version = "0.1.1"
 description = "An easier way to create custom nodes for ComfyUI via regular Python annotations"
 readme = "readme.md"
 authors = [{ name = "Andrew Harp", email = "andrew.harp@gmail.com" }]
-license = {file = "LICENSE.txt"}
+license = {file = "LICENSE"}
 requires-python = ">=3.10"
 dependencies = [
     "torch>=1.10"
