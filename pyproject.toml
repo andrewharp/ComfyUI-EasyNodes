@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comfyui-annotations"
+version = "0.1.1"
+description = "An easier way to create custom nodes for ComfyUI via regular Python annotations"
+readme = "readme.md"
+authors = [{ name = "Andrew Harp", email = "andrew.harp@gmail.com" }]
+license = {file = "LICENSE.txt"}
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=1.10"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/andrewharp/ComfyUI-Annotations"
+"Bug Reports" = "https://github.com/andrewharp/ComfyUI-Annotations/issues"
+"Source" = "https://github.com/andrewharp/ComfyUI-Annotations/"
+
+[tool.poetry]
+name = "comfyui-annotations"
+version = "0.1.1"
+description = "An easier way to create custom nodes for ComfyUI via regular Python annotations"
+authors = ["Andrew Harp <andrew.harp@gmail.com>"]
+license = "MIT"
+homepage = "https://github.com/andrewharp/ComfyUI-Annotations"
+repository = "https://github.com/andrewharp/ComfyUI-Annotations"
+documentation = "https://github.com/andrewharp/ComfyUI-Annotations"
+readme = "readme.md"
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+torch = ">=1.10"
