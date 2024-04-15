@@ -1,6 +1,5 @@
-import comfy_annotations
-
-NODE_CLASS_MAPPINGS = comfy_annotations.NODE_CLASS_MAPPINGS
-NODE_DISPLAY_NAME_MAPPINGS = comfy_annotations.NODE_DISPLAY_NAME_MAPPINGS
-
-__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
+# Note: This file is not used by ComfyUI to set up custom nodes, as ComfyUI-Annotations is not
+# typically expected to live under custom_nodes (it can be installed anywhere on your classpath)
+# nor does it provide any custom nodes itself.
+#
+# For a template to follow in exporting your own custom nodes, see example/__init__.py.

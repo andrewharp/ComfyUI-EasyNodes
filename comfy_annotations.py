@@ -17,6 +17,18 @@ import numpy as np
 import torch
 from PIL import Image
 
+import nodes
+
+
+# Export the web directory so ComfyUI can pick up the JavaScript.
+web_path = os.path.join(os.path.dirname(__file__), "web")
+if os.path.exists(web_path):
+    nodes.EXTENSION_WEB_DIRS["ComfyUI-Annotations"] = os.path.join(os.path.dirname(__file__), "web")
+    logging.info(f"Registered ComfyUI-Annotations web directory: '{web_path}'")
+else:
+    logging.warning(f"ComfyUI-Annotations: Web directory not found at {web_path}. Some features may not be available.")
+
+
 default_category = "ComfyFunc"
 
 # Whether or not to reload modules before running the nodes.
@@ -48,6 +60,7 @@ max_tries = 1
 
 already_initialized = False
 module_reload_times = {}
+func_dict = {}
 
 
 # For ComfyUI to pick up.
@@ -191,7 +204,7 @@ register_type(int, "INT")
 register_type(float, "FLOAT")
 register_type(str, "STRING")
 register_type(bool, "BOOLEAN")
-register_type(AnyType, any_type),
+register_type(AnyType, any_type)
 
 
 def get_type_str(the_type) -> str:
@@ -258,6 +271,9 @@ def verify_tensor(arg, tensor_name="", tensor_type="", allowed_shapes=None, allo
         return True
     
     if isinstance(arg, torch.Tensor):
+        if tensor_type == "MASK":
+            assert arg.min() >= 0 and arg.max() <= 1, f"{tensor_name}: {tensor_type} tensor must have values between 0 and 1, got min {arg.min()} and max {arg.max()}"
+        
         if allowed_shapes is not None:
             assert len(arg.shape) in allowed_shapes, f"{tensor_name}: {tensor_type} tensor must have shape in {allowed_shapes}, got {arg.shape}"
         if allowed_dims is not None:
@@ -351,21 +367,21 @@ def maybe_reload_module(func: callable):
             importlib.reload(module)
             logging.info(f"{Fore.GREEN}Reloaded module {module_name}{Fore.RESET}")
             module_reload_times[module_name] = current_modified_time
+            func_dict[func.__name__] = getattr(module, func.__name__)
             return True, getattr(module, func.__name__)
+    
+    if func.__name__ in func_dict:
+        return False, func_dict[func.__name__]
+    
     return False, func
 
 
 def call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name, return_names=None):
     try_count = 0
-    global already_initialized
-    already_initialized = True
 
     while try_count < max_tries:
-        reloaded, func = maybe_reload_module(func)
-
         try_count += 1
         try:
-            # Rest of the code remains the same
             return_line_number = func.__code__.co_firstlineno
             node_logger = logging.getLogger()
             node_logger.setLevel(logging.INFO)
@@ -375,9 +391,9 @@ def call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjus
             buffer_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
             sys.stdout = Tee(sys.stdout, buffer)
 
-            # logging.info(f"-------- Running {wrapped_name} --------")
+            logging.debug(f"-------- Running {wrapped_name} --------")
             result = func(*args, **kwargs)
-            # logging.info(f"-------- Finished {wrapped_name} --------")
+            logging.debug(f"-------- Finished {wrapped_name} --------")
 
             code_origin_loc = f"\n Source: {func.__qualname__} {func.__code__.co_filename}:{return_line_number}"
             num_expected_returns = len(adjusted_return_types)
@@ -408,9 +424,6 @@ def call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjus
             return tuple(new_result)
 
         except Exception as e:
-            if not reloaded:
-                logging.warning("Wasn't able to reload function from module, so no llm debugging")
-                raise e
             if try_count == max_tries:
                 logging.info("Out of tries, raising exception")
                 raise e
@@ -464,7 +477,7 @@ def ComfyFunc(
         wrapped_name = func.__qualname__ + "_comfyfunc_wrapper"
         source_location = f"{func.__code__.co_filename}:{func.__code__.co_firstlineno}"
         code_origin_loc = f"\n Source: {func.__qualname__} {source_location}"
-        
+                
         if debug:
             logger = logging.getLogger(wrapped_name)
             logger.info(
@@ -521,20 +534,24 @@ def ComfyFunc(
 
             input_desc = []
             for key, arg in kwargs.items():
-                kwargs[key] = all_to(get_device(), arg)
+                arg = all_to(get_device(), arg)
+                if (key in required_inputs and required_inputs[key][0] == "MASK"):
+                    if len(arg.shape) == 2:
+                        arg = arg.unsqueeze(0)
 
                 if key in all_inputs:
                     cls = input_type_map[key]
                     if _SHOULD_AUTOCONVERT.get(get_fully_qualified_name(cls), False):
                         if isinstance(arg, list):
-                            kwargs[key] = [cls(el) for el in arg]
+                            arg = [cls(el) for el in arg]
                         else:
-                            kwargs[key] = cls(arg)
+                            arg = cls(arg)
                 
+                desc_name = get_fully_qualified_name(type(arg))
                 if isinstance(arg, torch.Tensor):
-                    input_desc.append(f"{key} ({get_fully_qualified_name(type(arg))}): {image_info(arg)}")
+                    input_desc.append(f"{key} ({desc_name}): {image_info(arg)}")
                 else:
-                    input_desc.append(f"{key} ({get_fully_qualified_name(type(arg))}): {arg}")
+                    input_desc.append(f"{key} ({desc_name}): {arg}")
 
                 try:
                     verify_tensor_type(
@@ -542,6 +559,8 @@ def ComfyFunc(
                     )
                 except Exception as e:
                     raise ValueError(f"Error verifying INPUT tensor {str(e)}\n{code_origin_loc}") from None
+                
+                kwargs[key] = arg
 
             # For some reason self still gets passed with class methods.
             if is_cls_mth:
@@ -556,8 +575,12 @@ def ComfyFunc(
                     if not input_is_list_map[arg_name]:
                         assert len(kwargs[arg_name]) == 1
                         kwargs[arg_name] = kwargs[arg_name][0]
+            
+            global already_initialized
+            already_initialized = True
+            reloaded, latest_func = maybe_reload_module(func)
 
-            result = call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name,
+            result = call_function_and_verify_result(latest_func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name,
                                                      return_names=return_names)
 
             if not has_preview:
