@@ -167,7 +167,7 @@ _ANNOTATION_TO_COMFYUI_TYPE = {}
 _SHOULD_AUTOCONVERT = {"str": True}
 _DEFAULT_FORCE_INPUT = {}
 
-def get_fully_qualified_name(cls):
+def _get_fully_qualified_name(cls):
     return f"{cls.__module__}.{cls.__qualname__}"
 
 def register_type(
@@ -185,7 +185,7 @@ def register_type(
         is_auto_register (bool, optional): Whether the type is automatically registered. Defaults to False.
         force_input (bool, optional): Whether the type should be forced as an input. Defaults to False.
     """
-    key = get_fully_qualified_name(cls)
+    key = _get_fully_qualified_name(cls)
     # if not is_auto_register:
     #     assert key not in _ANNOTATION_TO_COMFYUI_TYPE, f"Type {cls} already registered."
 
@@ -207,10 +207,10 @@ register_type(bool, "BOOLEAN")
 register_type(AnyType, any_type)
 
 
-def get_type_str(the_type) -> str:
-    key = get_fully_qualified_name(the_type)
+def _get_type_str(the_type) -> str:
+    key = _get_fully_qualified_name(the_type)
     if key not in _ANNOTATION_TO_COMFYUI_TYPE and get_origin(the_type) is list:
-        return get_type_str(get_args(the_type)[0])
+        return _get_type_str(get_args(the_type)[0])
 
     if key not in _ANNOTATION_TO_COMFYUI_TYPE and the_type is not inspect._empty:
         logging.warning(
@@ -221,11 +221,11 @@ def get_type_str(the_type) -> str:
     return type_str
 
 
-def get_device():
+def _get_device():
     return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def add_preview(result):
+def _add_preview(result):
      # Only import if we're running in the context of ComfyUI, so as to not
      # make ComfyUI a requirement for any code that happens to use ComfyUI-Annotations.
     import folder_paths
@@ -266,7 +266,7 @@ def add_preview(result):
         return result
 
 
-def verify_tensor(arg, tensor_name="", tensor_type="", allowed_shapes=None, allowed_dims=None, allowed_channels=None) -> bool:
+def _verify_tensor(arg, tensor_name="", tensor_type="", allowed_shapes=None, allowed_dims=None, allowed_channels=None) -> bool:
     if not verify_tensors:
         return True
     
@@ -283,7 +283,7 @@ def verify_tensor(arg, tensor_name="", tensor_type="", allowed_shapes=None, allo
             assert arg.shape[-1] in allowed_channels, f"{tensor_name}: {tensor_type} tensor must have the number of channels in {allowed_channels}, got {arg.shape[-1]}"
     elif isinstance(arg, list):
         for a in arg:
-            return verify_tensor(a, tensor_name=tensor_name, allowed_shapes=allowed_shapes, allowed_dims=allowed_dims, allowed_channels=allowed_channels)
+            return _verify_tensor(a, tensor_name=tensor_name, allowed_shapes=allowed_shapes, allowed_dims=allowed_dims, allowed_channels=allowed_channels)
 
 
 tensor_types = {
@@ -293,24 +293,24 @@ tensor_types = {
 }
 
 
-def verify_tensor_type(key, arg, required_inputs, optional_inputs, tensor_name):
+def _verify_tensor_type(key, arg, required_inputs, optional_inputs, tensor_name):
     for tensor_type, params in tensor_types.items():
         if (key in required_inputs and required_inputs[key][0] == tensor_type) or (key in optional_inputs and optional_inputs[key][0] == tensor_type):
-            return verify_tensor(arg, tensor_name=tensor_name, tensor_type=tensor_type, **params)
+            return _verify_tensor(arg, tensor_name=tensor_name, tensor_type=tensor_type, **params)
     return True
 
 
-def verify_return_type(ret, return_type, tensor_name):
+def _verify_return_type(ret, return_type, tensor_name):
     if return_type in tensor_types:
-        return verify_tensor(ret, tensor_name=tensor_name, tensor_type=return_type, **tensor_types[return_type])
+        return _verify_tensor(ret, tensor_name=tensor_name, tensor_type=return_type, **tensor_types[return_type])
     return True
 
 
-def all_to(device, arg):
+def _all_to(device, arg):
     if isinstance(arg, torch.Tensor):
         return arg.to(device)
     elif isinstance(arg, list):
-        return [all_to(device, a) for a in arg]
+        return [_all_to(device, a) for a in arg]
     return arg
 
 
@@ -319,7 +319,7 @@ class ReturnInfo(Exception):
         self.line_number = line_number
 
 
-def image_info(image: Union[torch.Tensor, np.ndarray], label: str=None) -> str:
+def _image_info(image: Union[torch.Tensor, np.ndarray], label: str=None) -> str:
     if isinstance(image, torch.Tensor):
         if image.dtype == torch.bool:
             return (f"shape={image.shape} dtype={image.dtype} device={image.device}")
@@ -352,7 +352,7 @@ class Tee(object):
             f.flush()
 
 
-def maybe_reload_module(func: callable):
+def _maybe_reload_module(func: callable):
     module_name = func.__module__
     if not module_name or not reload_modules:
         return False, func
@@ -376,7 +376,7 @@ def maybe_reload_module(func: callable):
     return False, func
 
 
-def call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name, return_names=None):
+def _call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name, return_names=None):
     try_count = 0
 
     while try_count < max_tries:
@@ -411,13 +411,13 @@ def call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjus
                 if ret is None:
                     logging.warning(f"Result {i} is None")
 
-            new_result = all_to("cpu", list(result))
+            new_result = _all_to("cpu", list(result))
             for i, ret in enumerate(result):
                 if debug:
                     logging.info(f"Result {i} is {type(ret)}")
                 try:
                     name = f"'{return_names[i]}'" if return_names else f"return_{i}"
-                    verify_return_type(ret, adjusted_return_types[i], name)
+                    _verify_return_type(ret, adjusted_return_types[i], name)
                 except Exception as e:
                     raise ValueError(f"Error verifying OUTPUT tensor {str(e)}\n{code_origin_loc}") from None
 
@@ -534,27 +534,27 @@ def ComfyFunc(
 
             input_desc = []
             for key, arg in kwargs.items():
-                arg = all_to(get_device(), arg)
+                arg = _all_to(_get_device(), arg)
                 if (key in required_inputs and required_inputs[key][0] == "MASK"):
                     if len(arg.shape) == 2:
                         arg = arg.unsqueeze(0)
 
                 if key in all_inputs:
                     cls = input_type_map[key]
-                    if _SHOULD_AUTOCONVERT.get(get_fully_qualified_name(cls), False):
+                    if _SHOULD_AUTOCONVERT.get(_get_fully_qualified_name(cls), False):
                         if isinstance(arg, list):
                             arg = [cls(el) for el in arg]
                         else:
                             arg = cls(arg)
                 
-                desc_name = get_fully_qualified_name(type(arg))
+                desc_name = _get_fully_qualified_name(type(arg))
                 if isinstance(arg, torch.Tensor):
-                    input_desc.append(f"{key} ({desc_name}): {image_info(arg)}")
+                    input_desc.append(f"{key} ({desc_name}): {_image_info(arg)}")
                 else:
                     input_desc.append(f"{key} ({desc_name}): {arg}")
 
                 try:
-                    verify_tensor_type(
+                    _verify_tensor_type(
                         key, arg, required_inputs, optional_inputs, tensor_name=f"'{key}'"
                     )
                 except Exception as e:
@@ -578,15 +578,15 @@ def ComfyFunc(
             
             global already_initialized
             already_initialized = True
-            reloaded, latest_func = maybe_reload_module(func)
+            reloaded, latest_func = _maybe_reload_module(func)
 
-            result = call_function_and_verify_result(latest_func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name,
+            result = _call_function_and_verify_result(latest_func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name,
                                                      return_names=return_names)
 
             if not has_preview:
                 return result
             else:
-                return add_preview(result)
+                return _add_preview(result)
 
         if node_class is None or is_static:
             wrapper = staticmethod(wrapper)
@@ -634,7 +634,7 @@ def ComfyFunc(
 def _annotate_input(
     annotation, default=inspect.Parameter.empty, debug=False
 ) -> tuple[tuple, bool, bool]:
-    type_name = get_type_str(annotation)
+    type_name = _get_type_str(annotation)
         
     if isinstance(default, Choice):
         return (default.choices,), False, False
@@ -655,7 +655,7 @@ def _annotate_input(
     
     # This is the exception where they may have given it a default, but we still
     # want to force it as an input because changing that value will be rare.
-    if _DEFAULT_FORCE_INPUT.get(get_fully_qualified_name(annotation), False):
+    if _DEFAULT_FORCE_INPUT.get(_get_fully_qualified_name(annotation), False):
         metadata["forceInput"] = True
 
     return (type_name, metadata), default != inspect.Parameter.empty, False
@@ -734,19 +734,19 @@ def _infer_return_types_from_annotations(func_or_types, debug=False):
             if get_origin(arg) == list:
                 output_is_list.append(True)
                 list_arg = get_args(arg)[0]
-                types_mapped.append(get_type_str(list_arg))
+                types_mapped.append(_get_type_str(list_arg))
             else:
                 output_is_list.append(False)
-                types_mapped.append(get_type_str(arg))
+                types_mapped.append(_get_type_str(arg))
     elif origin is list:
         if debug:
-            print(get_type_str(return_annotation))
+            print(_get_type_str(return_annotation))
             print(return_annotation)
             print(return_args)
-        types_mapped.append(get_type_str(return_args[0]))
+        types_mapped.append(_get_type_str(return_args[0]))
         output_is_list.append(origin is list)
     elif return_annotation is not inspect.Parameter.empty:
-        types_mapped.append(get_type_str(return_annotation))
+        types_mapped.append(_get_type_str(return_annotation))
         output_is_list.append(False)
 
     return_types_tuple = tuple(types_mapped)
@@ -908,18 +908,18 @@ def create_dynamic_setter(cls: type, extra_imports: list[str] = [], debug=False)
 
             # Automatically register the type and its subtypes, allowing duplicates
             register_type(
-                prop_type, get_fully_qualified_name(prop_type), is_auto_register=True
+                prop_type, _get_fully_qualified_name(prop_type), is_auto_register=True
             )
             if hasattr(prop_type, "__args__"):
                 for subtype in prop_type.__args__:
                     register_type(
                         subtype,
-                        get_fully_qualified_name(subtype),
+                        _get_fully_qualified_name(subtype),
                         is_auto_register=True,
                     )
 
             # Extract module name from the property type
-            module_name = get_fully_qualified_name(prop_type).rsplit(".", 1)[0]
+            module_name = _get_fully_qualified_name(prop_type).rsplit(".", 1)[0]
             if "." in module_name:
                 module_names.add(module_name)
 
@@ -932,19 +932,19 @@ def create_dynamic_setter(cls: type, extra_imports: list[str] = [], debug=False)
     for prop, (prop_type, current_value) in properties.items():
         if prop_type in [int, float]:
             func_params.append(
-                f"{prop}: {get_fully_qualified_name(prop_type).replace('builtins.', '')}=NumberInput({current_value})"
+                f"{prop}: {_get_fully_qualified_name(prop_type).replace('builtins.', '')}=NumberInput({current_value})"
             )
         elif prop_type == str:
             func_params.append(
-                f"{prop}: {get_fully_qualified_name(prop_type).replace('builtins.', '')}=StringInput('{current_value}')"
+                f"{prop}: {_get_fully_qualified_name(prop_type).replace('builtins.', '')}=StringInput('{current_value}')"
             )
         elif prop_type == bool:
             func_params.append(
-                f"{prop}: {get_fully_qualified_name(prop_type).replace('builtins.', '')}={current_value}"
+                f"{prop}: {_get_fully_qualified_name(prop_type).replace('builtins.', '')}={current_value}"
             )
         else:
             func_params.append(
-                f"{prop}: {get_fully_qualified_name(prop_type).replace('builtins.', '')}=None"
+                f"{prop}: {_get_fully_qualified_name(prop_type).replace('builtins.', '')}=None"
             )
 
     func_params_str = ", ".join(func_params)
