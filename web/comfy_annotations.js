@@ -73,7 +73,3 @@ app.registerExtension({
     }
   },
 });
-
-
-
-export { main_menu_settings }
