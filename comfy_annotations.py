@@ -1,10 +1,11 @@
 import functools
+import hashlib
 import importlib
 import inspect
 import io
 import logging
+import math
 import os
-import random
 import sys
 import typing
 from enum import Enum
@@ -56,11 +57,6 @@ process_exception_logic = None
 
 # Maximum number of times to retry a node if it fails. Useful for iterative debugging.
 max_tries = 1
-
-
-already_initialized = False
-module_reload_times = {}
-func_dict = {}
 
 
 # For ComfyUI to pick up.
@@ -163,12 +159,14 @@ class AnyType(str):
 any_type = AnyType("*")
 
 
+def _get_fully_qualified_name(cls):
+    return f"{cls.__module__}.{cls.__qualname__}"
+
+
 _ANNOTATION_TO_COMFYUI_TYPE = {}
 _SHOULD_AUTOCONVERT = {"str": True}
 _DEFAULT_FORCE_INPUT = {}
 
-def _get_fully_qualified_name(cls):
-    return f"{cls.__module__}.{cls.__qualname__}"
 
 def register_type(
     cls, name: str, 
@@ -207,6 +205,24 @@ register_type(bool, "BOOLEAN")
 register_type(AnyType, any_type)
 
 
+_already_initialized = False
+_module_reload_times = {}
+_module_dict = {}
+
+_function_dict = {}
+_function_checksums = {}
+_function_update_times = {}
+
+_curr_preview = {}
+_curr_unique_id = None
+
+_tensor_types = {
+    "IMAGE": {"allowed_shapes": [4], "allowed_dims": None, "allowed_channels": [1, 3, 4]},
+    "MASK": {"allowed_shapes": [3], "allowed_dims": None, "allowed_channels": None},
+    "DEPTH": {"allowed_shapes": [4], "allowed_dims": None, "allowed_channels": [1]}
+}
+
+
 def _get_type_str(the_type) -> str:
     key = _get_fully_qualified_name(the_type)
     if key not in _ANNOTATION_TO_COMFYUI_TYPE and get_origin(the_type) is list:
@@ -225,45 +241,42 @@ def _get_device():
     return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def _add_preview(result):
-     # Only import if we're running in the context of ComfyUI, so as to not
-     # make ComfyUI a requirement for any code that happens to use ComfyUI-Annotations.
+def add_preview_image(image: Union[torch.Tensor, np.ndarray], label: str = None):
+    image = image[0]
+
+    if len(image.shape) == 2:
+        image = image.unsqueeze(-1)
+
+    if image.shape[-1] == 1:
+        image = torch.cat([image] * 3, axis=-1)
+
+    image = image.cpu().numpy()
+
+    image = Image.fromarray(np.clip(image * 255.0, 0, 255).astype(np.uint8))
+
     import folder_paths
-    assert len(result) >= 1, f"Expected at least 1 result, got {len(result)}"
 
-    def get_first_result(results):
-        if isinstance(results, tuple) or isinstance(results, list):
-            if len(results) > 0:
-                return get_first_result(results[0])
-            else:
-                return None
-        # logging.info(f"Returning! {results}")
-        return results
-    
-    preview_item = get_first_result(result) 
-    if isinstance(preview_item, str):
-        return {"ui": {"text": [preview_item]}, "result": result}
-    elif isinstance(preview_item,  torch.Tensor):
-        image = preview_item[0].cpu().numpy()
-        image = Image.fromarray(np.clip(image * 255.0, 0, 255).astype(np.uint8))
+    filename = f"preview-{_curr_unique_id}.png"
+    subfolder = "ComfyUI-Annotations"
+    full_output_path = Path(folder_paths.get_temp_directory()) / subfolder / filename
 
-        folder = Path(folder_paths.get_temp_directory())
-        folder.mkdir(parents=True, exist_ok=True)
-        filename = (
-            "_temp_"
-            + "".join(random.choice("abcdefghijklmnopqrstupvxyz") for x in range(5))
-            + ".png"
-        )
-        full_output_path = folder / filename
+    full_output_path.parent.mkdir(parents=True, exist_ok=True)
+    image.save(str(full_output_path), compress_level=4)
 
-        image.save(str(full_output_path), compress_level=4)        
+    if "images" not in _curr_preview:
+        _curr_preview["images"] = []
+    _curr_preview["images"].append({"filename": filename, "subfolder": subfolder, "type": "temp"})
 
-        results = []
-        results.append({"filename": filename, "subfolder": "", "type": "temp"})
-        return {"ui": {"images": results}, "result": result}
-    else:
-        logging.warning("Result is not a string or tensor, not showing preview")
-        return result
+
+def add_preview_text(text: str):
+    """Add a preview text to the ComfyUI node.
+
+    Args:
+        text (str): The text to display.
+    """
+    if "text" not in _curr_preview:
+        _curr_preview["text"] = []
+    _curr_preview["text"].append(text)
 
 
 def _verify_tensor(arg, tensor_name="", tensor_type="", allowed_shapes=None, allowed_dims=None, allowed_channels=None) -> bool:
@@ -286,23 +299,16 @@ def _verify_tensor(arg, tensor_name="", tensor_type="", allowed_shapes=None, all
             return _verify_tensor(a, tensor_name=tensor_name, allowed_shapes=allowed_shapes, allowed_dims=allowed_dims, allowed_channels=allowed_channels)
 
 
-tensor_types = {
-    "IMAGE": {"allowed_shapes": [4], "allowed_dims": None, "allowed_channels": [1, 3, 4]},
-    "MASK": {"allowed_shapes": [3], "allowed_dims": None, "allowed_channels": None},
-    "DEPTH": {"allowed_shapes": [4], "allowed_dims": None, "allowed_channels": [1]}
-}
-
-
 def _verify_tensor_type(key, arg, required_inputs, optional_inputs, tensor_name):
-    for tensor_type, params in tensor_types.items():
+    for tensor_type, params in _tensor_types.items():
         if (key in required_inputs and required_inputs[key][0] == tensor_type) or (key in optional_inputs and optional_inputs[key][0] == tensor_type):
             return _verify_tensor(arg, tensor_name=tensor_name, tensor_type=tensor_type, **params)
     return True
 
 
 def _verify_return_type(ret, return_type, tensor_name):
-    if return_type in tensor_types:
-        return _verify_tensor(ret, tensor_name=tensor_name, tensor_type=return_type, **tensor_types[return_type])
+    if return_type in _tensor_types:
+        return _verify_tensor(ret, tensor_name=tensor_name, tensor_type=return_type, **_tensor_types[return_type])
     return True
 
 
@@ -321,8 +327,9 @@ class ReturnInfo(Exception):
 
 def _image_info(image: Union[torch.Tensor, np.ndarray], label: str=None) -> str:
     if isinstance(image, torch.Tensor):
-        if image.dtype == torch.bool:
-            return (f"shape={image.shape} dtype={image.dtype} device={image.device}")
+        if image.dtype in [torch.long, torch.int, torch.int32, torch.int64, torch.bool]:
+            image = image.float()
+        
         return (f"shape={image.shape} dtype={image.dtype} min={image.min()} max={image.max()}"
               + f" mean={image.mean()} sum={image.sum()} device={image.device}")
     elif isinstance(image, np.ndarray):
@@ -352,28 +359,71 @@ class Tee(object):
             f.flush()
 
 
-def _maybe_reload_module(func: callable):
-    module_name = func.__module__
-    if not module_name or not reload_modules:
-        return False, func
+def _compute_function_checksum(func_to_check):
+    try:
+        source_code = inspect.getsource(func_to_check)
+    except Exception as e:
+        logging.debug(f"Could not get source code for {func_to_check}: {e}")
+        return 0
+    return int(hashlib.sha256(source_code.encode('utf-8')).hexdigest(), 16)
+
+
+def _register_function(func: callable, checksum, timestamp):
+    if func.__qualname__ in _function_dict:
+        assert _function_update_times[func.__qualname__] < timestamp, f"Function {func.__qualname__} already registered with later timestamp! {_function_update_times[func.__qualname__]} < {timestamp}"
+        assert _function_checksums[func.__qualname__] != checksum, f"Function {func.__qualname__} already registered with same checksum! {_function_checksums[func.__qualname__]} == {checksum}"
     
-    module = importlib.import_module(module_name)
+    _function_dict[func.__qualname__] = func
+    _function_checksums[func.__qualname__] = checksum
+    _function_update_times[func.__qualname__] = timestamp
+
+
+def _get_latest_version_of_module(module_name: str, debug: bool = False):
+    if module_name not in _module_dict:
+        _module_dict[module_name] = importlib.import_module(module_name)
+    module = _module_dict[module_name]
+    
     module_file = module.__file__
     
+    # First reload the module if it needs to be reloaded.
     current_modified_time = os.path.getmtime(module_file)
+    module_reload_time = _module_reload_times.get(module_name, 0)
+    if current_modified_time > module_reload_time:
+        time_diff = current_modified_time - module_reload_time
+        logging.info(f"{Fore.LIGHTMAGENTA_EX}Reloading module {module_name} because file was edited. ({time_diff:.1f}s between versions){Fore.RESET}")
+        # Set _already_initialized so that any calls to ComfyFunc will get 
+        # ignored rather than tripping the already-registered assert.
+        global _already_initialized
+        _already_initialized = True
+        importlib.reload(module)
+        _module_reload_times[module_name] = current_modified_time
+    elif debug:
+         logging.info(f"{module_name} up to date: {current_modified_time} vs {module_reload_time}")
     
-    if current_modified_time > module_reload_times.get(module_name, 0):
-        if hasattr(module, func.__name__):
-            importlib.reload(module)
-            logging.info(f"{Fore.GREEN}Reloaded module {module_name}{Fore.RESET}")
-            module_reload_times[module_name] = current_modified_time
-            func_dict[func.__name__] = getattr(module, func.__name__)
-            return True, getattr(module, func.__name__)
+    return module, current_modified_time
+
+
+def _get_latest_version_of_func(func: callable, debug: bool = False):
+    if reload_modules and func.__module__:
+        module, current_modified_time = _get_latest_version_of_module(func.__module__, debug)
+        
+        old_checksum = _function_checksums.get(func.__qualname__, 0)
+        
+        # Now pull the updated function from the module.
+        last_function_update_time = _function_update_times.get(func.__qualname__, 0)
+        if current_modified_time > last_function_update_time:
+            time_diff = current_modified_time - last_function_update_time
+            if hasattr(module, func.__name__):
+                updated_func = getattr(module, func.__name__) 
+                current_checksum = _compute_function_checksum(updated_func)
+                if current_checksum != old_checksum:
+                    logging.info(f"{Fore.LIGHTMAGENTA_EX}Updating {func.__qualname__} because function was modified. ({time_diff:.1f}s between versions){Fore.RESET}")
+                    _register_function(updated_func, current_checksum, current_modified_time)
+                elif debug:
+                    logging.error(f"{func.__qualname__} up to date: {current_modified_time} vs {last_function_update_time}")
+                    logging.error(inspect.getsource(_function_dict[func.__qualname__]))
     
-    if func.__name__ in func_dict:
-        return False, func_dict[func.__name__]
-    
-    return False, func
+    return _function_dict[func.__qualname__]
 
 
 def _call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name, return_names=None):
@@ -391,9 +441,8 @@ def _call_function_and_verify_result(func, args, kwargs, debug, input_desc, adju
             buffer_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
             sys.stdout = Tee(sys.stdout, buffer)
 
-            logging.debug(f"-------- Running {wrapped_name} --------")
+            _curr_preview.clear()
             result = func(*args, **kwargs)
-            logging.debug(f"-------- Finished {wrapped_name} --------")
 
             code_origin_loc = f"\n Source: {func.__qualname__} {func.__code__.co_filename}:{return_line_number}"
             num_expected_returns = len(adjusted_return_types)
@@ -421,11 +470,17 @@ def _call_function_and_verify_result(func, args, kwargs, debug, input_desc, adju
                 except Exception as e:
                     raise ValueError(f"Error verifying OUTPUT tensor {str(e)}\n{code_origin_loc}") from None
 
-            return tuple(new_result)
+            result = tuple(new_result)
+            
+            # If preview items were added, wrap the result.
+            if _curr_preview:
+                result = {"ui": _curr_preview, "result": result}
+            return result
 
         except Exception as e:
+            logging.error(func)
             if try_count == max_tries:
-                logging.info("Out of tries, raising exception")
+                logging.warning(f"Out of tries, raising exception: '{e}'")
                 raise e
             
             if process_exception_logic:
@@ -440,7 +495,6 @@ def _call_function_and_verify_result(func, args, kwargs, debug, input_desc, adju
     assert False, "Should never reach this point"
 
 
-
 def ComfyFunc(
     category: str = default_category,
     display_name: str = None,
@@ -451,7 +505,7 @@ def ComfyFunc(
     return_names: list[str] = None,
     validate_inputs: Callable = None,
     is_changed: Callable = None,
-    has_preview: bool = False,
+    always_run: bool = False,
     debug: bool = False,
     color: str = None,
     automatic_debugging: bool = True,    
@@ -473,11 +527,61 @@ def ComfyFunc(
     Returns:
         A callable used that can be used with a function to create a ComfyUI node.
     """
-    def decorator(func):
+    def decorator(func: callable):
+        if _already_initialized:
+            # Sorry, we're closed for business.
+            return func
+
+        assert func.__qualname__ not in _function_dict, f"Function {func.__qualname__} already registered"
+
+        if func.__qualname__ in _function_dict:
+            return func
+
+        modify_time = os.path.getmtime(func.__code__.co_filename) if os.path.exists(func.__code__.co_filename) else 0
+        _module_reload_times[func.__module__] = modify_time
+        _register_function(func, _compute_function_checksum(func), modify_time)
+        
+        filename = func.__code__.co_filename
+        
         wrapped_name = func.__qualname__ + "_comfyfunc_wrapper"
-        source_location = f"{func.__code__.co_filename}:{func.__code__.co_firstlineno}"
+        source_location = f"{filename}:{func.__code__.co_firstlineno}"
         code_origin_loc = f"\n Source: {func.__qualname__} {source_location}"
+        original_is_changed = is_changed
+        wrapped_is_changed = is_changed
+        
+        def wrapped_is_changed(*args, **kwargs):
+            if always_run:
+                logging.info(f"Always running {func.__qualname__}")
+                return float("nan")
+            
+            unique_id = kwargs["unique_id"]
+            updated_func = _get_latest_version_of_func(func, debug)
+            current_checksum = _function_checksums[updated_func.__qualname__]
+            if debug:
+                logging.info(f"{func.__qualname__} {unique_id} is_changed: Checking if {original_is_changed} with args {args} and kwargs {kwargs.keys()}")
+                for key in kwargs.keys():
+                    logging.info(f"kwarg {key}: {type(kwargs[key])} {kwargs[key].shape if isinstance(kwargs[key], torch.Tensor) else ''}")
+            
+            try:
+                if original_is_changed:
+                    original_is_changed_params = inspect.signature(original_is_changed).parameters
+                    filtered_kwargs = {key: value for key, value in kwargs.items() if key in original_is_changed_params}
+                    original_num = original_is_changed(*args, **filtered_kwargs)
+                else:
+                    original_num = 0
                 
+                if math.isnan(original_num):
+                    return float("nan")
+            except Exception as e:
+                logging.error(f"Error in is_changed function: {e} {func.__qualname__} {args} {kwargs.keys()}")
+                raise e
+
+            is_changed_val = current_checksum ^ original_num
+            
+            if debug:
+                logging.info(f"{Fore.GREEN}{func.__qualname__}{Fore.RESET} {Fore.WHITE}{unique_id}{Fore.RESET} is_changed={Fore.LIGHTMAGENTA_EX}{is_changed_val}")
+            return is_changed_val
+        
         if debug:
             logger = logging.getLogger(wrapped_name)
             logger.info(
@@ -519,6 +623,9 @@ def ComfyFunc(
         name_parts = [x.title() for x in func.__name__.split("_")]
         input_is_list = any(input_is_list_map.values())
         
+        sig = inspect.signature(func)
+        param_names = list(sig.parameters.keys())
+        
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if debug:
@@ -533,7 +640,20 @@ def ComfyFunc(
             all_inputs = {**required_inputs, **optional_inputs}
 
             input_desc = []
-            for key, arg in kwargs.items():
+            keys = list(kwargs.keys())
+            for key in keys:
+                arg = kwargs[key]
+                # Remove extra_pnginfo and unique_id from the kwargs if they weren't requested by the user.
+                if key == "unique_id":
+                    # logging.info(f"Setting unique_id to {arg}")
+                    global _curr_unique_id
+                    _curr_unique_id = arg
+            
+                if key not in param_names:
+                    # logging.info(f"Removing extra kwarg {key}")
+                    kwargs.pop(key)
+                    continue
+                
                 arg = _all_to(_get_device(), arg)
                 if (key in required_inputs and required_inputs[key][0] == "MASK"):
                     if len(arg.shape) == 2:
@@ -576,17 +696,12 @@ def ComfyFunc(
                         assert len(kwargs[arg_name]) == 1
                         kwargs[arg_name] = kwargs[arg_name][0]
             
-            global already_initialized
-            already_initialized = True
-            reloaded, latest_func = _maybe_reload_module(func)
-
+            latest_func = _get_latest_version_of_func(func, debug)
+            
             result = _call_function_and_verify_result(latest_func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name,
-                                                     return_names=return_names)
+                                                      return_names=return_names)
 
-            if not has_preview:
-                return result
-            else:
-                return _add_preview(result)
+            return result
 
         if node_class is None or is_static:
             wrapper = staticmethod(wrapper)
@@ -619,7 +734,7 @@ def ComfyFunc(
             description=the_description,
             is_output_node=is_output_node or force_output,
             validate_inputs=validate_inputs,
-            is_changed=is_changed,
+            is_changed=wrapped_is_changed,
             color=color,
             debug=debug,
             source_location=source_location,
@@ -669,7 +784,7 @@ def _infer_input_types_from_annotations(func, skip_first, debug=False):
     input_type_map = {}
     sig = inspect.signature(func)
     required_inputs = {}
-    hidden_input_types = {}
+    hidden_input_types = {"unique_id": "UNIQUE_ID", "extra_pnginfo": "EXTRA_PNGINFO"}
     optional_input_types = {}
 
     params = list(sig.parameters.items())
@@ -692,10 +807,8 @@ def _infer_input_types_from_annotations(func, skip_first, debug=False):
 
         the_param, is_optional, is_hidden = _annotate_input(param.annotation, param.default, debug)
         
-        if param_name == "unique_id":
-            hidden_input_types[param_name] = "UNIQUE_ID"
-        elif param_name == "extra_pnginfo":
-            hidden_input_types[param_name] = "EXTRA_PNGINFO"
+        if param_name == "unique_id" or param_name == "extra_pnginfo":
+            pass
         elif not is_optional:
             required_inputs[param_name] = the_param
         elif is_hidden:
@@ -823,7 +936,7 @@ def _create_comfy_node(
         for key, value in class_dict.items():
             logger.info(f"{key}: {value}")
 
-    if not already_initialized:
+    if not _already_initialized:
         assert (
             workflow_name not in NODE_CLASS_MAPPINGS
         ), f"Node class '{workflow_name} ({cname})' already exists!"
