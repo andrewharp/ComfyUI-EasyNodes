@@ -1,4 +1,5 @@
-import { app } from "../../../scripts/app.js";
+import { app } from "/scripts/app.js";
+import { api } from '/scripts/api.js';
 
 app.registerExtension({
   name: "ComfyAnnotations",
@@ -55,6 +56,7 @@ app.registerExtension({
         if (nodeSource && editorPathPrefix) {
           this.sourceLoc = editorPathPrefix + nodeSource;
         }
+        this.description = nodeData.description;
       }
       
       // Apply colors and source location when the node is created
