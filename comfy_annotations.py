@@ -18,7 +18,9 @@ import numpy as np
 import torch
 from PIL import Image
 
+import llm_debugging
 import nodes
+import config
 
 
 # Export the web directory so ComfyUI can pick up the JavaScript.
@@ -53,10 +55,6 @@ verify_tensors = True
 
 # Function to call when an exception is raised during node execution.
 process_exception_logic = None
-
-
-# Maximum number of times to retry a node if it fails. Useful for iterative debugging.
-max_tries = 1
 
 
 # For ComfyUI to pick up.
@@ -219,7 +217,8 @@ _curr_unique_id = None
 _tensor_types = {
     "IMAGE": {"allowed_shapes": [4], "allowed_dims": None, "allowed_channels": [1, 3, 4]},
     "MASK": {"allowed_shapes": [3], "allowed_dims": None, "allowed_channels": None},
-    "DEPTH": {"allowed_shapes": [4], "allowed_dims": None, "allowed_channels": [1]}
+    "DEPTH": {"allowed_shapes": [4], "allowed_dims": None, "allowed_channels": [1]},
+    "OPTICAL_FLOW": {"allowed_shapes": [4], "allowed_dims": None, "allowed_channels": [2]}
 }
 
 
@@ -255,8 +254,10 @@ def add_preview_image(image: Union[torch.Tensor, np.ndarray], label: str = None)
     image = Image.fromarray(np.clip(image * 255.0, 0, 255).astype(np.uint8))
 
     import folder_paths
+    
+    unique = hashlib.md5(image.tobytes()).hexdigest()[:8]
 
-    filename = f"preview-{_curr_unique_id}.png"
+    filename = f"preview-{_curr_unique_id}_{unique} .png"
     subfolder = "ComfyUI-Annotations"
     full_output_path = Path(folder_paths.get_temp_directory()) / subfolder / filename
 
@@ -428,6 +429,10 @@ def _get_latest_version_of_func(func: callable, debug: bool = False):
 
 def _call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name, return_names=None):
     try_count = 0
+    llm_debugging_enabled = config.get_config_value("easy_nodes.llm_debugging", "Off") != "Off"
+    max_tries = int(config.get_config_value("easy_nodes.max_tries", 1)) if llm_debugging_enabled else 1
+    
+    logging.debug(f"Running {func.__qualname__} with {max_tries} tries. {llm_debugging_enabled}")
 
     while try_count < max_tries:
         try_count += 1
@@ -474,7 +479,7 @@ def _call_function_and_verify_result(func, args, kwargs, debug, input_desc, adju
             
             # If preview items were added, wrap the result.
             if _curr_preview:
-                result = {"ui": _curr_preview, "result": result}
+                result = {"ui": _curr_preview.copy(), "result": result}
             return result
 
         except Exception as e:
@@ -483,8 +488,8 @@ def _call_function_and_verify_result(func, args, kwargs, debug, input_desc, adju
                 logging.warning(f"Out of tries, raising exception: '{e}'")
                 raise e
             
-            if process_exception_logic:
-                process_exception_logic(func, e, input_desc, buffer)
+            if llm_debugging_enabled:
+                llm_debugging.process_exception_logic(func, e, input_desc, buffer)
 
         finally:
             node_logger.removeHandler(buffer_handler)
@@ -656,8 +661,13 @@ def ComfyFunc(
                 
                 arg = _all_to(_get_device(), arg)
                 if (key in required_inputs and required_inputs[key][0] == "MASK"):
-                    if len(arg.shape) == 2:
-                        arg = arg.unsqueeze(0)
+                    if isinstance(arg, torch.Tensor):
+                        if len(arg.shape) == 2:
+                            arg = arg.unsqueeze(0)
+                    elif isinstance(arg, list):
+                        for i, a in enumerate(arg):
+                            if len(a.shape) == 2:
+                                arg[i] = a.unsqueeze(0)
 
                 if key in all_inputs:
                     cls = input_type_map[key]
@@ -1043,9 +1053,13 @@ def create_dynamic_setter(cls: type, extra_imports: list[str] = [], debug=False)
 
     func_params = []
     for prop, (prop_type, current_value) in properties.items():
-        if prop_type in [int, float]:
+        if prop_type == int:
             func_params.append(
                 f"{prop}: {_get_fully_qualified_name(prop_type).replace('builtins.', '')}=NumberInput({current_value})"
+            )
+        elif prop_type == float:
+            func_params.append(
+                f"{prop}: {_get_fully_qualified_name(prop_type).replace('builtins.', '')}=NumberInput({current_value}, -1000000, 10000000, 0.0001)"
             )
         elif prop_type == str:
             func_params.append(

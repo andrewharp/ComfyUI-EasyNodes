@@ -8,15 +8,18 @@ app.registerExtension({
     app.ui.settings.addSetting({
       id: "Comfy.SourcePathPrefix",
       name: "Stack trace remove prefix (common prefix to remove, e.g '/home/user/project/')",
-      type: "string",
+      type: "text",
       defaultValue: "",
     });
     
     app.ui.settings.addSetting({
       id: "Comfy.EditorPathPrefix",
       name: "Stack trace link prefix (insert this in stack traces to make them clickable, e.g. 'vscode://vscode-remote/wsl+Ubuntu')",
-      type: "string",
+      type: "text",
       defaultValue: "",
+      onChange: (value) => {
+        console.log("Changed editor path prefix");
+      }
     });
   },
 
