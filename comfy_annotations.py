@@ -485,13 +485,18 @@ def _call_function_and_verify_result(func, args, kwargs, debug, input_desc, adju
 
         except Exception as e:
             logging.error(func)
+            logging.error(e)
             if try_count == max_tries:
                 # Calculate the number of interesting stack levels.
                 _, _, tb = sys.exc_info()
-                formatted_stack = traceback.extract_tb(tb)
-                e.num_interesting_levels = len(formatted_stack) - 1
+                the_stack = traceback.extract_tb(tb)
+                e.num_interesting_levels = len(the_stack) - 1
+                logging.info(the_stack)
                 
-                logging.warning(f"Out of tries, raising exception: '{e}'")
+                formatted_stack = "\n".join(traceback.format_exception(type(e), e, tb))
+                
+                logging.warning(f"{formatted_stack}")
+                
                 raise e
             
             if llm_debugging_enabled:
