@@ -91,7 +91,6 @@ def get_user_config():
 
 def write_user_config():
   """ Writes the user configuration."""
-  logging.info(f"Writing user config: {USER_CONFIG} to {USER_CONFIG_FILE}")
   with open(USER_CONFIG_FILE, 'w+', encoding = 'UTF-8') as file:
     json.dump(USER_CONFIG, file, sort_keys=True, indent=2, separators=(",", ": "))
 
@@ -129,6 +128,5 @@ async def api_set_user_config(request):
   """ Returns the user configuration. """
   post = await request.post()
   data = json.loads(post.get("json"))
-  logging.info(f"Setting user config: {data}")
   set_user_config(data)
   return web.json_response({"status": "ok"})
