@@ -7,6 +7,7 @@ import logging
 import math
 import os
 import sys
+import traceback
 import typing
 from enum import Enum
 from pathlib import Path
@@ -485,6 +486,11 @@ def _call_function_and_verify_result(func, args, kwargs, debug, input_desc, adju
         except Exception as e:
             logging.error(func)
             if try_count == max_tries:
+                # Calculate the number of interesting stack levels.
+                _, _, tb = sys.exc_info()
+                formatted_stack = traceback.extract_tb(tb)
+                e.num_interesting_levels = len(formatted_stack) - 1
+                
                 logging.warning(f"Out of tries, raising exception: '{e}'")
                 raise e
             
