@@ -88,22 +88,11 @@ app.registerExtension({
       node._imgs = [new Image()];
       node.imageIndex = 0;
 
-      let set_img_act = (v) => {
-        node._img = v;
-        var canvas = document.createElement('canvas');
-        canvas.width = v[0].width;
-        canvas.height = v[0].height;
-
-        var context = canvas.getContext('2d');
-        context.drawImage(v[0], 0, 0, v[0].width, v[0].height);
-      };
-
       let already_tried = false;
 
       Object.defineProperty(node, 'imgs', {
         set(v) {
-          console.log("Setting images");
-          console.log(v);
+          console.log("Setting image: ", v);
           if (v && v.length == 0) {
             console.log("No images!");
             return;
