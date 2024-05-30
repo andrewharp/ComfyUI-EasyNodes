@@ -1030,7 +1030,7 @@ def _create_comfy_node(
     bg_color=None,
     source_location=None,
     debug=False,
-    easy_nodes_config=None,
+    easy_nodes_config: EasyNodesConfig=None,
 ):
     all_inputs = {"required": required_inputs, "hidden": hidden_inputs, "optional": optional_inputs}
     
@@ -1095,6 +1095,7 @@ def _create_comfy_node(
 
     class_map[workflow_name] = node_class
     display_map[workflow_name] = display_name
+    easy_nodes_config.num_registered += 1
 
 
 def _is_static_method(cls, attr):
