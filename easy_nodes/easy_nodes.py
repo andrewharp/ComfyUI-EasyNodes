@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+import dataclasses
+from importlib import import_module
 import functools
 import hashlib
 import importlib
@@ -13,54 +16,106 @@ from enum import Enum
 from pathlib import Path
 from typing import Callable, Union, get_args, get_origin
 
-from colorama import Fore
+import easy_nodes
 
+import nodes as comfyui_nodes
 import numpy as np
 import torch
+from colorama import Fore
 from PIL import Image
 
-import llm_debugging
-import nodes
-import config
+import easy_nodes.config_service as config_service
+import easy_nodes.llm_debugging as llm_debugging
 
 
 # Export the web directory so ComfyUI can pick up the JavaScript.
-web_path = os.path.join(os.path.dirname(__file__), "web")
-if os.path.exists(web_path):
-    nodes.EXTENSION_WEB_DIRS["ComfyUI-Annotations"] = os.path.join(os.path.dirname(__file__), "web")
-    logging.info(f"Registered ComfyUI-Annotations web directory: '{web_path}'")
+_web_path = os.path.join(os.path.dirname(__file__), "..", "web")
+
+
+if os.path.exists(_web_path):
+    comfyui_nodes.EXTENSION_WEB_DIRS["ComfyUI-EasyNodes"] = _web_path
+    logging.info(f"Registered ComfyUI-EasyNodes web directory: '{_web_path}'")
 else:
-    logging.warning(f"ComfyUI-Annotations: Web directory not found at {web_path}. Some features may not be available.")
+    logging.warning(f"ComfyUI-EasyNodes: Web directory not found at {_web_path}. Some features may not be available.")
 
-
-default_category = "ComfyFunc"
-
-# Whether or not to reload modules before running the nodes.
-# Useful while developing.
-reload_modules = True
 
 class AutoDescriptionMode(Enum):
     NONE = "none"
     BRIEF = "brief"
     FULL = "full"
 
-# Whether to automatically use the docstring as the description for nodes.
-# If set to AutoDescriptionMode.FULL, the full docstring will be used, whereas
-# AutoDescriptionMode.BRIEF will use only the first line of the docstring.
-docstring_mode = AutoDescriptionMode.FULL
 
-# Whether to automatically verify tensor shapes on input and output for common tensor
-# types like images and masks.
-verify_tensors = True
+@dataclass
+class EasyNodesConfig:
+    default_category = None
+    auto_register = None
+    docstring_mode = None
+    verify_tensors = None
+    auto_move_tensors = None
+    NODE_CLASS_MAPPINGS = {}
+    NODE_DISPLAY_NAME_MAPPINGS = {}
+    num_registered = 0
 
 
-# Function to call when an exception is raised during node execution.
-process_exception_logic = None
+# Keep track of the config from the last init, because different custom_nodes modules 
+# could possibly want different settings.
+_easy_nodes_config = EasyNodesConfig()
+_current_config = None
 
 
-# For ComfyUI to pick up.
-NODE_CLASS_MAPPINGS = {}
-NODE_DISPLAY_NAME_MAPPINGS = {}
+def init(default_category: str = "EasyNodes", 
+         auto_register: bool = True, 
+         docstring_mode: AutoDescriptionMode = AutoDescriptionMode.FULL, 
+         verify_tensors: bool = False,
+         auto_move_tensors: bool = False):
+    """
+    Initializes the EasyNodes library with the specified configuration options.
+    
+    All nodes created after this call until the next call of init() will use the specified configuration options.
+
+    Args:
+        default_category (str, optional): The default category for nodes. Defaults to "EasyNodes".
+        auto_register (bool, optional): Whether to automatically register nodes. Defaults to True.
+        docstring_mode (AutoDescriptionMode, optional): The mode for generating node docstrings. Defaults to AutoDescriptionMode.FULL.
+        verify_tensors (bool, optional): Whether to verify tensors when connecting nodes. Defaults to False.
+        auto_move_tensors (bool, optional): Whether to automatically move tensors when connecting nodes. Defaults to False.
+    """
+    global _current_config
+    if _current_config and _current_config.num_registered == 0:
+        logging.warning("Re-initializing EasyNodes, but no Nodes have been registered since last initialization. This may indicate an issue.")
+
+    logging.info("Initializing EasyNodes.")
+        
+    _current_config = dataclasses.replace(_easy_nodes_config)
+    _current_config.default_category = default_category
+    _current_config.auto_register = auto_register
+    _current_config.docstring_mode = docstring_mode
+    _current_config.verify_tensors = verify_tensors
+    _current_config.auto_move_tensors = auto_move_tensors
+
+    if auto_register:
+        _current_config.NODE_CLASS_MAPPINGS = comfyui_nodes.NODE_CLASS_MAPPINGS
+        _current_config.NODE_DISPLAY_NAME_MAPPINGS = comfyui_nodes.NODE_DISPLAY_NAME_MAPPINGS
+        frame = sys._getframe(1).f_globals['__name__']
+        logging.info(f"Auto-registering nodes for {frame}")
+        _ensure_package_dicts_exist(frame)
+    else:
+        _current_config.NODE_CLASS_MAPPINGS = {}
+        _current_config.NODE_DISPLAY_NAME_MAPPINGS = {}
+
+
+def get_node_mappings():
+    assert _current_config is not None, "EasyNodes not initialized. Call easy_nodes.init() before using ComfyFunc."
+    assert not _current_config.auto_register, "Auto-node registration is on. Call easy_nodes.init(auto_register=False) if you want to export manually."
+    _current_config.initialized = False
+    return _current_config.NODE_CLASS_MAPPINGS, _current_config.NODE_DISPLAY_NAME_MAPPINGS
+
+
+def _get_curr_config():
+    if _current_config is None:
+        logging.warning("EasyNodes not initialized. Call easy_nodes.init() before using ComfyFunc.")
+        easy_nodes.init()
+    return _current_config
 
 
 # Use as a default str value to show choices to the user.
@@ -204,7 +259,7 @@ register_type(bool, "BOOLEAN")
 register_type(AnyType, any_type)
 
 
-_already_initialized = False
+_has_prompt_been_requested = False
 _module_reload_times = {}
 _module_dict = {}
 
@@ -241,33 +296,33 @@ def _get_device():
     return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def add_preview_image(image: Union[torch.Tensor, np.ndarray], label: str = None):
-    image = image[0]
+def add_preview_image(image: torch.Tensor, type: str = "output"):
+    images = image
+    for image in images:
+        if len(image.shape) == 2:
+            image = image.unsqueeze(-1)
 
-    if len(image.shape) == 2:
-        image = image.unsqueeze(-1)
+        if image.shape[-1] == 1:
+            image = torch.cat([image] * 3, axis=-1)
 
-    if image.shape[-1] == 1:
-        image = torch.cat([image] * 3, axis=-1)
+        image = image.cpu().numpy()
 
-    image = image.cpu().numpy()
+        image = Image.fromarray(np.clip(image * 255.0, 0, 255).astype(np.uint8))
 
-    image = Image.fromarray(np.clip(image * 255.0, 0, 255).astype(np.uint8))
+        import folder_paths
+        
+        unique = hashlib.md5(image.tobytes()).hexdigest()[:8]
 
-    import folder_paths
-    
-    unique = hashlib.md5(image.tobytes()).hexdigest()[:8]
+        filename = f"preview-{_curr_unique_id}_{unique}.png"
+        subfolder = "ComfyUI-EasyNodes"
+        full_output_path = Path(folder_paths.get_directory_by_type(type)) / subfolder / filename
 
-    filename = f"preview-{_curr_unique_id}_{unique} .png"
-    subfolder = "ComfyUI-Annotations"
-    full_output_path = Path(folder_paths.get_temp_directory()) / subfolder / filename
+        full_output_path.parent.mkdir(parents=True, exist_ok=True)
+        image.save(str(full_output_path), compress_level=4)
 
-    full_output_path.parent.mkdir(parents=True, exist_ok=True)
-    image.save(str(full_output_path), compress_level=4)
-
-    if "images" not in _curr_preview:
-        _curr_preview["images"] = []
-    _curr_preview["images"].append({"filename": filename, "subfolder": subfolder, "type": "temp"})
+        if "images" not in _curr_preview:
+            _curr_preview["images"] = []
+        _curr_preview["images"].append({"filename": filename, "subfolder": subfolder, "type": type})
 
 
 def add_preview_text(text: str):
@@ -282,7 +337,7 @@ def add_preview_text(text: str):
 
 
 def _verify_tensor(arg, tensor_name="", tensor_type="", allowed_shapes=None, allowed_dims=None, allowed_channels=None) -> bool:
-    if not verify_tensors:
+    if not EasyNodesConfig.verify_tensors:
         return True
     
     if isinstance(arg, torch.Tensor):
@@ -315,6 +370,9 @@ def _verify_return_type(ret, return_type, tensor_name):
 
 
 def _all_to(device, arg):
+    if not EasyNodesConfig.auto_move_tensors:
+        return arg
+    
     if isinstance(arg, torch.Tensor):
         return arg.to(device)
     elif isinstance(arg, list):
@@ -395,8 +453,8 @@ def _get_latest_version_of_module(module_name: str, debug: bool = False):
         logging.info(f"{Fore.LIGHTMAGENTA_EX}Reloading module {module_name} because file was edited. ({time_diff:.1f}s between versions){Fore.RESET}")
         # Set _already_initialized so that any calls to ComfyFunc will get 
         # ignored rather than tripping the already-registered assert.
-        global _already_initialized
-        _already_initialized = True
+        global _has_prompt_been_requested
+        _has_prompt_been_requested = True
         importlib.reload(module)
         _module_reload_times[module_name] = current_modified_time
     elif debug:
@@ -406,6 +464,7 @@ def _get_latest_version_of_module(module_name: str, debug: bool = False):
 
 
 def _get_latest_version_of_func(func: callable, debug: bool = False):
+    reload_modules = config_service.get_config_value("easy_nodes.ReloadOnEdit", False)
     if reload_modules and func.__module__:
         module, current_modified_time = _get_latest_version_of_module(func.__module__, debug)
         
@@ -430,8 +489,8 @@ def _get_latest_version_of_func(func: callable, debug: bool = False):
 
 def _call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name, return_names=None):
     try_count = 0
-    llm_debugging_enabled = config.get_config_value("easy_nodes.llm_debugging", "Off") != "Off"
-    max_tries = int(config.get_config_value("easy_nodes.max_tries", 1)) if llm_debugging_enabled else 1
+    llm_debugging_enabled = config_service.get_config_value("easy_nodes.llm_debugging", "Off") != "Off"
+    max_tries = int(config_service.get_config_value("easy_nodes.max_tries", 1)) if llm_debugging_enabled else 1
     
     logging.debug(f"Running {func.__qualname__} with {max_tries} tries. {llm_debugging_enabled}")
 
@@ -509,10 +568,39 @@ def _call_function_and_verify_result(func, args, kwargs, debug, input_desc, adju
                 buffer.close()
 
     assert False, "Should never reach this point"
+    
+
+def _ensure_package_dicts_exist(module_name: str):
+    package_name = module_name.split('.')[-2]
+
+    try:
+        package = import_module(package_name)
+        
+        if not package.__file__.endswith("__init__.py"):
+            raise ValueError(f"Package {package_name} is not a package. Cannot export.")
+
+        if not hasattr(package, '__all__'):
+            package.__all__ = []
+            
+        def add_if_not_there(dict_name):
+            if dict_name not in package.__all__:
+                package.__all__.append(dict_name)
+            if not hasattr(package, dict_name):
+                setattr(package, dict_name, {})
+        
+        add_if_not_there('NODE_CLASS_MAPPINGS')
+        add_if_not_there('NODE_DISPLAY_NAME_MAPPINGS')
+    except Exception as e:
+        error_str = (f"Could not automatically find import package {package_name}. "
+            + "Try initializing with easy_nodes.init(auto_register=False) and export manually in your __init__.py "
+            + "with easy_nodes.get_node_mappings()")
+        logging.error(error_str)
+        raise e
+
 
 
 def ComfyFunc(
-    category: str = default_category,
+    category: str = None,
     display_name: str = None,
     workflow_name: str = None,
     description: str = None,
@@ -524,7 +612,7 @@ def ComfyFunc(
     always_run: bool = False,
     debug: bool = False,
     color: str = None,
-    automatic_debugging: bool = True,    
+    bg_color: str = None,
 ):
     """
     Decorator function for creating ComfyUI nodes.
@@ -543,8 +631,14 @@ def ComfyFunc(
     Returns:
         A callable used that can be used with a function to create a ComfyUI node.
     """
-    def decorator(func: callable):
-        if _already_initialized:
+    curr_config = _get_curr_config()
+    
+    if not category:
+        category = curr_config.default_category
+        
+    
+    def decorator(func: callable):        
+        if _has_prompt_been_requested:
             # Sorry, we're closed for business.
             return func
 
@@ -583,6 +677,7 @@ def ComfyFunc(
                     original_is_changed_params = inspect.signature(original_is_changed).parameters
                     filtered_kwargs = {key: value for key, value in kwargs.items() if key in original_is_changed_params}
                     original_num = original_is_changed(*args, **filtered_kwargs)
+                    original_num = hash(original_num)
                 else:
                     original_num = 0
                 
@@ -733,9 +828,9 @@ def ComfyFunc(
         the_description = description
         if the_description is None:
             the_description = ""
-            if docstring_mode is not AutoDescriptionMode.NONE and func.__doc__:
+            if EasyNodesConfig.docstring_mode is not AutoDescriptionMode.NONE and func.__doc__:
                 the_description = func.__doc__.strip()
-                if docstring_mode == AutoDescriptionMode.BRIEF:
+                if EasyNodesConfig.docstring_mode == AutoDescriptionMode.BRIEF:
                     the_description = the_description.split("\n")[0]
 
         _create_comfy_node(
@@ -757,8 +852,10 @@ def ComfyFunc(
             validate_inputs=validate_inputs,
             is_changed=wrapped_is_changed,
             color=color,
+            bg_color=bg_color,
             debug=debug,
             source_location=source_location,
+            easy_nodes_config=curr_config,
         )
 
         # Return the original function so it can still be used as normal (only ComfyUI sees the wrapper function).
@@ -893,6 +990,14 @@ def _infer_return_types_from_annotations(func_or_types, debug=False):
     return return_types_tuple, output_is_lists_tuple
 
 
+def hex_to_color(color: str) -> list[float]:
+    col = color.strip('#').strip().upper()
+    assert len(col) == 6, f"Color must be a hex color code, got {color}"
+    assert all(c in "0123456789ABCDEF" for c in col), f"Color must be a hex color code, got {color}"
+    color_rgb = [int(col[i : i + 2], 16) for i in [0, 2, 4]]
+    return color_rgb
+
+
 def _create_comfy_node(
     cname,
     category,
@@ -912,28 +1017,29 @@ def _create_comfy_node(
     validate_inputs=None,
     is_changed=None,
     color=None,
+    bg_color=None,
     source_location=None,
     debug=False,
+    easy_nodes_config=None,
 ):
     all_inputs = {"required": required_inputs, "hidden": hidden_inputs, "optional": optional_inputs}
-      
+    
+    description = "easy_nodes\n" + (description or "")
+    
     # Smuggle the color in with the description. Bit of a hack,
     # but afaict there's no way to pass it directly.
     if color is not None:
-        assert color.startswith("#"), "Color must be a hex color code"
-        assert len(color) == 7, "Color must be a hex color code"
-        assert all(c in "0123456789ABCDEF" for c in color[1:]), "Color must be a hex color code"
-        
-        # Turn it into floating point
-        color = color[1:]
-        color = [int(color[i:i+2], 16) / 255.0 for i in (0, 2, 4)]
-        bgcolor = [c * 0.6 for c in color]
-        hex_bg_color = "#" + "".join(f"{int(c * 255):02X}" for c in bgcolor)
-        
-        description += f"\n\nComfyUINodeColor={color}\nComfyUINodeBgColor={hex_bg_color}"
+        color_rgb = hex_to_color(color)
+        description += f"\nComfyUINodeColor={color}"
+        if not bg_color:
+            bg_color = "#" + "".join(f"{int(c * 0.6):02X}" for c in color_rgb)
+            
+    if bg_color is not None:
+        _ = hex_to_color(bg_color)  # Check that it's a valid color
+        description += f"\nComfyUINodeBgColor={bg_color}"
 
     if source_location is not None:
-        description += f"\n\nNodeSource={source_location}"
+        description += f"\nNodeSource={source_location}"
 
     # Initial class dictionary setup
     class_dict = {
@@ -956,17 +1062,18 @@ def _create_comfy_node(
         logger = logging.getLogger(cname)
         for key, value in class_dict.items():
             logger.info(f"{key}: {value}")
+            
+    class_map = easy_nodes_config.NODE_CLASS_MAPPINGS
+    display_map = easy_nodes_config.NODE_DISPLAY_NAME_MAPPINGS
 
-    if not _already_initialized:
-        assert (
-            workflow_name not in NODE_CLASS_MAPPINGS
-        ), f"Node class '{workflow_name} ({cname})' already exists!"
-        assert (
-            display_name not in NODE_DISPLAY_NAME_MAPPINGS.values()
-        ), f"Display name '{display_name}' already exists!"
-        assert (
-            node_class not in NODE_CLASS_MAPPINGS.values()
-        ), f"Only one method from '{node_class} can be used as a ComfyUI node.'"
+    if not _has_prompt_been_requested:
+        all_workflow_names = set(class_map.keys()) | set(comfyui_nodes.NODE_CLASS_MAPPINGS.keys())
+        all_display_names = set(display_map.values()) | set(comfyui_nodes.NODE_DISPLAY_NAME_MAPPINGS.values())
+        all_node_classes = set(class_map.values()) | set(comfyui_nodes.NODE_CLASS_MAPPINGS.values())
+
+        assert workflow_name not in all_workflow_names, f"Node class '{workflow_name} ({cname})' already exists!"
+        assert display_name not in all_display_names, f"Display name '{display_name}' already exists!"
+        assert node_class not in all_node_classes, f"Only one method from '{node_class}' can be used as a ComfyUI node."
 
     if node_class:
         for key, value in class_dict.items():
@@ -974,8 +1081,8 @@ def _create_comfy_node(
     else:
         node_class = type(workflow_name, (object,), class_dict)
 
-    NODE_CLASS_MAPPINGS[workflow_name] = node_class
-    NODE_DISPLAY_NAME_MAPPINGS[workflow_name] = display_name
+    class_map[workflow_name] = node_class
+    display_map[workflow_name] = display_name
 
 
 def _is_static_method(cls, attr):
@@ -1010,15 +1117,18 @@ def _get_node_class(func):
 T = typing.TypeVar("T")
 
 
-def register_setter(cls: type, category=default_category, extra_imports: list[str] = [], debug=False) -> typing.Callable[..., T]:
+def create_field_setter_node(cls: type, category=None, extra_imports: list[str] = [], debug=False) -> typing.Callable[..., T]:
+    if category is None:
+        category = _get_curr_config().default_category
+    
     if debug:
         logging.info(f"Registering setter for class '{cls.__name__}'")
     register_type(cls, name=cls.__name__)
     ComfyFunc(category, display_name=cls.__name__, workflow_name=cls.__name__, debug=debug)(
-        create_dynamic_setter(cls, extra_imports=extra_imports))
+        _create_dynamic_setter(cls, extra_imports=extra_imports))
 
 
-def create_dynamic_setter(cls: type, extra_imports: list[str] = [], debug=False) -> typing.Callable[..., T]:
+def _create_dynamic_setter(cls: type, extra_imports: list[str] = [], debug=False) -> typing.Callable[..., T]:
     obj = cls()
     func_name = cls.__name__
     setter_name = func_name + "_setter"
@@ -1092,7 +1202,7 @@ def create_dynamic_setter(cls: type, extra_imports: list[str] = [], debug=False)
         "import typing",
         *[f"import {module_name}" for module_name in module_names],
         "import importlib",
-        "from comfy_annotations import NumberInput, StringInput",
+        "from easy_nodes import NumberInput, StringInput",
     ]
     
     for extra_import in extra_imports:

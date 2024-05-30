@@ -1,5 +1,6 @@
+import logging
 from random import random
-from comfy_annotations import (
+from easy_nodes import (
     NumberInput,
     ComfyFunc,
     MaskTensor,
@@ -7,10 +8,20 @@ from comfy_annotations import (
     ImageTensor,
     Choice,
 )
+import easy_nodes
+from easy_nodes.easy_nodes import add_preview_text
 import torch
 
-my_category = "Comfy Annotation Examples"
 
+my_category = "EasyNodes Examples"
+
+logging.error("Hello World!")
+
+# By default EasyNodes will auto-register any decorated function.
+# If you want to manually register your nodes the regular way, turn off
+# auto_register and export the easy_nodes.NODE_CLASS_MAPPINGS and easy_nodes.NODE_DISPLAY_NAME_MAPPINGS
+# dicts.
+easy_nodes.init(default_category=my_category, auto_register=True)
 
 # This is the converted example node from ComfyUI's example_node.py.example file.
 @ComfyFunc(my_category)
@@ -51,16 +62,27 @@ class ExampleClass:
     def __init__(self):
         self.counter = 42
 
-    def my_method(self):
+    def my_method(self) -> int:
         print(f"ExampleClass Hello World! {self.counter}")
         self.counter += 1
+        return self.counter
 
+
+def my_is_changed_func():
+    return random()
 
 ComfyFunc(
     my_category,
-    is_changed=lambda: random.random(),
+    is_changed=my_is_changed_func,
     description="Descriptions can also be passed in manually. This operation increments a counter",
 )(ExampleClass.my_method)
+
+
+# Preview text and images right in the nodes.
+@ComfyFunc(my_category, is_output_node=True)
+def preview_example(str2: str = StringInput("")) -> str:
+    add_preview_text(f"hello: {str2}")
+    return str2
 
 
 # Wrapping a class method
@@ -82,9 +104,15 @@ ComfyFunc(my_category, is_changed=lambda: random.random())(
 # differentiate between images and masks in ComfyUI. This is purely cosmetic, and they
 # are interchangeable in Python. If you annotate the type of a parameter as torch.Tensor
 # it will be treated as an ImageTensor.
-@ComfyFunc(my_category)
+@ComfyFunc(my_category, color="#00FF00")
 def convert_to_image(mask: MaskTensor) -> ImageTensor:
     return mask
+
+
+@ComfyFunc(my_category)
+def text_repeater(text: str=StringInput("Sample text"), 
+                  times: int=NumberInput(10, 1, 100)) -> list[str]:
+    return [text] * times
 
 
 # If you wrap your input types in list[], under the hood the decorator will make sure you get
@@ -92,17 +120,17 @@ def convert_to_image(mask: MaskTensor) -> ImageTensor:
 # If you don't, then you'll get multiple calls with a single item on each call.
 @ComfyFunc(my_category)
 def combine_lists(
-    image1: list[torch.Tensor], image2: list[torch.Tensor]
-) -> list[torch.Tensor]:
+    image1: list[ImageTensor], image2: list[ImageTensor]
+) -> list[ImageTensor]:
     combined_lists = image1 + image2
     return combined_lists
 
 
 # Adding a default for a param makes it optional, so ComfyUI won't require it to run your node.
 @ComfyFunc(my_category)
-def combine_tensors(
-    image1: torch.Tensor, image2: torch.Tensor, image3: torch.Tensor = None
-) -> torch.Tensor:
+def add_images(
+    image1: ImageTensor, image2: ImageTensor, image3: ImageTensor = None
+) -> ImageTensor:
     combined_tensors = image1 + image2
     if image3 is not None:
         combined_tensors += image3
@@ -111,24 +139,30 @@ def combine_tensors(
 
 # Multiple outputs can be returned by annotating with tuple[].
 # Pass return_names if you want to give them labels in ComfyUI.
-@ComfyFunc(my_category, return_names=["below_threshold", "above_threshold"])
+@ComfyFunc(my_category, return_names=["below_threshold", "above_threshold"], color="#0066cc", bg_color="#ffcc00")
 def threshold_image(
-    image: torch.Tensor, threshold_value: float
+    image: ImageTensor, threshold_value: float = NumberInput(0.5, 0, 1, 0.0001, display="slider")
 ) -> tuple[MaskTensor, MaskTensor]:
-    return image < threshold_value, image > threshold_value
+    # Create a mask where any channel is below the threshold value.
+    mask_below = torch.any(image < threshold_value, dim=-1)
+    
+    return mask_below.float(), (~mask_below).float()
 
 
 # ImageTensor and MaskTensor are just torch.Tensors, so you can treat them as such.
-@ComfyFunc(my_category)
-def example_mask_image(image: ImageTensor, mask: MaskTensor) -> ImageTensor:
+@ComfyFunc(my_category, color="#0000FF")
+def example_mask_image(image: ImageTensor, 
+                       mask: MaskTensor,
+                       value: float=NumberInput(0, 0, 1, 0.0001, display="slider")) -> ImageTensor:
     image = image.clone()
-    image[mask == 0] = 1.0
+    image[mask == 0] = value
     return image
 
 
 # As long as Python is happy, ComfyUI will be happy with whatever you tell it the return type is.
-@ComfyFunc(my_category)
-def convert_to_mask(image: ImageTensor, threshold: float = 0.5) -> MaskTensor:
+# You can set the node color by passing in a color argument to the decorator.
+@ComfyFunc(my_category, color="#FF0000")
+def convert_to_mask(image: ImageTensor, threshold: float = NumberInput(0.5, 0, 1, 0.0001, display="slider")) -> MaskTensor:
     return (image > threshold).float()
 
 

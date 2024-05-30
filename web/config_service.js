@@ -1,13 +1,5 @@
 // Adapted from https://github.com/rgthree/rgthree-comfy
 
-// print the location of this file
-console.log(import.meta.url);
-console.log(import.meta.url);
-console.log(import.meta.url);
-console.log(import.meta.url);
-console.log(import.meta.url);
-console.log(import.meta.url);
-
 export function getObjectValue(obj, objKey, def) {
     if (!obj || !objKey)
         return def;
@@ -84,3 +76,17 @@ class ConfigService extends EventTarget {
     }
 }
 export const SERVICE = new ConfigService();
+
+
+export function createSetting(id, name, type, defaultValue, options) {
+  app.ui.settings.addSetting({
+    id,
+    name,
+    type,
+    defaultValue,
+    options,
+    onChange: (value) => {
+      SERVICE.setConfigValues({ [id]: value });
+    },
+  });
+};

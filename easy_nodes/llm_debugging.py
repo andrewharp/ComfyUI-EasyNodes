@@ -12,14 +12,14 @@ import traceback
 from colorama import Fore, Style
 from openai import OpenAI
 
-import config
+import easy_nodes.config_service as config_service
 
 
 def create_openai_client() -> OpenAI:
     openai_key = os.environ.get("OPENAI_API_KEY")
     
     if not openai_key:
-        openai_key = config.get_config_value("easy_nodes.openai_api_token", None)
+        openai_key = config_service.get_config_value("easy_nodes.openai_api_token", None)
     
     if not openai_key:
         raise ValueError("OpenAI API key not found in either settings or OPENAI_API_KEY environment variable. "
@@ -173,7 +173,7 @@ def replace_source_with_updates(entry_code: str, original_source: dict[str, list
     logging.info(f"Patch file created: {patch_file}")
     print_patch_with_color(patch_file)
 
-    if config.get_config_value("easy_nodes.llm_debugging", "Off") == "AutoFix":
+    if config_service.get_config_value("easy_nodes.llm_debugging", "Off") == "AutoFix":
         logging.info("Applying the patch to the original file...")
         # Apply the patch to a copy of the original file to test changes
         _, patched_file = tempfile.mkstemp()
@@ -209,7 +209,7 @@ def process_exception_logic(func, exception, input_desc, buffer):
     
     openai_client = create_openai_client()
     
-    model_name = config.get_config_value("easy_nodes.llm_model", "gpt-4o")
+    model_name = config_service.get_config_value("easy_nodes.llm_model", "gpt-4o")
     
     # Send the prompt to OpenAI and get the response
     # Assuming send_prompt_to_openai returns a structured response with the modified function code
