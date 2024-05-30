@@ -1,6 +1,6 @@
 {
-  "last_node_id": 119,
-  "last_link_id": 185,
+  "last_node_id": 123,
+  "last_link_id": 192,
   "nodes": [
     {
       "id": 49,
@@ -14,13 +14,13 @@
         "1": 26
       },
       "flags": {},
-      "order": 7,
+      "order": 9,
       "mode": 0,
       "inputs": [
         {
           "name": "mask",
           "type": "MASK",
-          "link": 158
+          "link": 192
         }
       ],
       "outputs": [
@@ -53,7 +53,7 @@
         "1": 130
       },
       "flags": {},
-      "order": 3,
+      "order": 5,
       "mode": 0,
       "inputs": [
         {
@@ -95,7 +95,7 @@
         "1": 270
       },
       "flags": {},
-      "order": 5,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -108,15 +108,7 @@
         "Node name for S&R": "PreviewImage"
       },
       "widgets_values": [
-        {
-          "images": [
-            {
-              "filename": "ComfyUI_temp_utryb_00001_.png",
-              "subfolder": "",
-              "type": "temp"
-            }
-          ]
-        }
+        {}
       ]
     },
     {
@@ -164,7 +156,7 @@
         "1": 226
       },
       "flags": {},
-      "order": 2,
+      "order": 3,
       "mode": 0,
       "inputs": [
         {
@@ -207,7 +199,7 @@
         "1": 66
       },
       "flags": {},
-      "order": 10,
+      "order": 12,
       "mode": 0,
       "inputs": [
         {
@@ -242,52 +234,6 @@
       }
     },
     {
-      "id": 20,
-      "type": "PreviewImage",
-      "pos": [
-        1729,
-        979
-      ],
-      "size": {
-        "0": 210,
-        "1": 270
-      },
-      "flags": {},
-      "order": 14,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 169
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "PreviewImage"
-      },
-      "widgets_values": [
-        {
-          "images": [
-            {
-              "filename": "ComfyUI_temp_sfucn_00016_.png",
-              "subfolder": "",
-              "type": "temp"
-            },
-            {
-              "filename": "ComfyUI_temp_sfucn_00017_.png",
-              "subfolder": "",
-              "type": "temp"
-            },
-            {
-              "filename": "ComfyUI_temp_sfucn_00018_.png",
-              "subfolder": "",
-              "type": "temp"
-            }
-          ]
-        }
-      ]
-    },
-    {
       "id": 109,
       "type": "CombineLists",
       "pos": [
@@ -299,7 +245,7 @@
         "1": 46
       },
       "flags": {},
-      "order": 11,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
@@ -329,49 +275,6 @@
       }
     },
     {
-      "id": 4,
-      "type": "LoadImage",
-      "pos": [
-        -90,
-        474
-      ],
-      "size": {
-        "0": 315,
-        "1": 314
-      },
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            100,
-            107,
-            116,
-            182
-          ],
-          "shape": 3,
-          "slot_index": 0
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": [],
-          "shape": 3,
-          "slot_index": 1
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoadImage"
-      },
-      "widgets_values": [
-        "dog.png",
-        "image"
-      ]
-    },
-    {
       "id": 107,
       "type": "PreviewImage",
       "pos": [
@@ -383,7 +286,7 @@
         "1": 270
       },
       "flags": {},
-      "order": 9,
+      "order": 11,
       "mode": 0,
       "inputs": [
         {
@@ -396,15 +299,7 @@
         "Node name for S&R": "PreviewImage"
       },
       "widgets_values": [
-        {
-          "images": [
-            {
-              "filename": "ComfyUI_temp_hjifr_00002_.png",
-              "subfolder": "",
-              "type": "temp"
-            }
-          ]
-        }
+        {}
       ]
     },
     {
@@ -419,7 +314,7 @@
         "1": 270
       },
       "flags": {},
-      "order": 16,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
@@ -432,25 +327,7 @@
         "Node name for S&R": "PreviewImage"
       },
       "widgets_values": [
-        {
-          "images": [
-            {
-              "filename": "ComfyUI_temp_npfey_00016_.png",
-              "subfolder": "",
-              "type": "temp"
-            },
-            {
-              "filename": "ComfyUI_temp_npfey_00017_.png",
-              "subfolder": "",
-              "type": "temp"
-            },
-            {
-              "filename": "ComfyUI_temp_npfey_00018_.png",
-              "subfolder": "",
-              "type": "temp"
-            }
-          ]
-        }
+        {}
       ]
     },
     {
@@ -465,7 +342,7 @@
         "1": 270
       },
       "flags": {},
-      "order": 12,
+      "order": 14,
       "mode": 0,
       "inputs": [
         {
@@ -478,15 +355,7 @@
         "Node name for S&R": "PreviewImage"
       },
       "widgets_values": [
-        {
-          "images": [
-            {
-              "filename": "ComfyUI_temp_tjyyt_00006_.png",
-              "subfolder": "",
-              "type": "temp"
-            }
-          ]
-        }
+        {}
       ]
     },
     {
@@ -501,7 +370,7 @@
         "1": 320
       },
       "flags": {},
-      "order": 15,
+      "order": 17,
       "mode": 0,
       "inputs": [
         {
@@ -564,7 +433,7 @@
         "1": 46
       },
       "flags": {},
-      "order": 13,
+      "order": 15,
       "mode": 0,
       "inputs": [
         {
@@ -617,7 +486,7 @@
         {
           "name": "mask",
           "type": "MASK",
-          "link": 121
+          "link": null
         }
       ],
       "outputs": [
@@ -653,7 +522,7 @@
         "1": 78
       },
       "flags": {},
-      "order": 8,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
@@ -664,7 +533,7 @@
         {
           "name": "mask",
           "type": "MASK",
-          "link": 183
+          "link": 191
         }
       ],
       "outputs": [
@@ -689,42 +558,173 @@
       "bgcolor": "#000099"
     },
     {
-      "id": 79,
-      "type": "ThresholdImage",
+      "id": 20,
+      "type": "PreviewImage",
       "pos": [
-        323,
-        633
+        1729,
+        979
       ],
       "size": {
-        "0": 269.24224853515625,
-        "1": 81.36329650878906
+        "0": 210,
+        "1": 270
+      },
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 169
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [
+        {}
+      ]
+    },
+    {
+      "id": 121,
+      "type": "CreateRandomImage",
+      "pos": [
+        844.75908396768,
+        1124.9660790959101
+      ],
+      "size": {
+        "0": 315,
+        "1": 82
+      },
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            189
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateRandomImage"
+      },
+      "widgets_values": [
+        128,
+        128
+      ]
+    },
+    {
+      "id": 122,
+      "type": "PreviewImage",
+      "pos": [
+        1330,
+        1002
+      ],
+      "size": {
+        "0": 280.5796203613281,
+        "1": 319.560791015625
       },
       "flags": {},
       "order": 4,
       "mode": 0,
       "inputs": [
         {
-          "name": "image",
+          "name": "images",
           "type": "IMAGE",
-          "link": 107
+          "link": 189
         }
       ],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [
+        {}
+      ]
+    },
+    {
+      "id": 4,
+      "type": "LoadImage",
+      "pos": [
+        -750,
+        549
+      ],
+      "size": {
+        "0": 315,
+        "1": 314
+      },
+      "flags": {},
+      "order": 2,
+      "mode": 0,
       "outputs": [
         {
-          "name": "below_threshold",
-          "type": "MASK",
+          "name": "IMAGE",
+          "type": "IMAGE",
           "links": [
-            121,
-            158
+            100,
+            116,
+            182,
+            190
           ],
           "shape": 3,
           "slot_index": 0
         },
         {
-          "name": "above_threshold",
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "shape": 3,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "dog.png",
+        "image"
+      ]
+    },
+    {
+      "id": 123,
+      "type": "ThresholdImage",
+      "pos": [
+        -8,
+        575
+      ],
+      "size": {
+        "0": 315,
+        "1": 78
+      },
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 190
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
           "type": "MASK",
           "links": [
-            183
+            192
+          ],
+          "shape": 3,
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            191
           ],
           "shape": 3,
           "slot_index": 1
@@ -734,7 +734,7 @@
         "Node name for S&R": "ThresholdImage"
       },
       "widgets_values": [
-        0.5806
+        0.5
       ],
       "color": "#0066cc",
       "bgcolor": "#ffcc00"
@@ -746,14 +746,6 @@
       4,
       0,
       71,
-      0,
-      "IMAGE"
-    ],
-    [
-      107,
-      4,
-      0,
-      79,
       0,
       "IMAGE"
     ],
@@ -772,14 +764,6 @@
       83,
       0,
       "IMAGE"
-    ],
-    [
-      121,
-      79,
-      0,
-      83,
-      1,
-      "MASK"
     ],
     [
       125,
@@ -812,14 +796,6 @@
       108,
       0,
       "IMAGE"
-    ],
-    [
-      158,
-      79,
-      0,
-      49,
-      0,
-      "MASK"
     ],
     [
       163,
@@ -878,14 +854,6 @@
       "IMAGE"
     ],
     [
-      183,
-      79,
-      1,
-      119,
-      1,
-      "MASK"
-    ],
-    [
       184,
       119,
       0,
@@ -900,6 +868,38 @@
       109,
       1,
       "IMAGE"
+    ],
+    [
+      189,
+      121,
+      0,
+      122,
+      0,
+      "IMAGE"
+    ],
+    [
+      190,
+      4,
+      0,
+      123,
+      0,
+      "IMAGE"
+    ],
+    [
+      191,
+      123,
+      1,
+      119,
+      1,
+      "MASK"
+    ],
+    [
+      192,
+      123,
+      0,
+      49,
+      0,
+      "MASK"
     ]
   ],
   "groups": [],
