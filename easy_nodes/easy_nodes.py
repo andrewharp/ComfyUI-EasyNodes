@@ -297,7 +297,7 @@ def _get_device():
     return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def add_preview_image(image: torch.Tensor, type: str = "output"):
+def show_image(image: torch.Tensor, type: str = "output"):
     images = image
     for image in images:
         if len(image.shape) == 2:
@@ -326,7 +326,7 @@ def add_preview_image(image: torch.Tensor, type: str = "output"):
         _curr_preview["images"].append({"filename": filename, "subfolder": subfolder, "type": type})
 
 
-def add_preview_text(text: str):
+def show_text(text: str):
     """Add a preview text to the ComfyUI node.
 
     Args:

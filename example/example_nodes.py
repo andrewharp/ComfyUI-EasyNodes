@@ -83,7 +83,7 @@ ComfyNode(
 # Preview text and images right in the nodes.
 @ComfyNode(my_category, is_output_node=True)
 def preview_example(str2: str = StringInput("")) -> str:
-    easy_nodes.add_preview_text(f"hello: {str2}")
+    easy_nodes.show_text(f"hello: {str2}")
     return str2
 
 
@@ -141,13 +141,10 @@ def add_images(
 
 # Multiple outputs can be returned by annotating with tuple[].
 # Pass return_names if you want to give them labels in ComfyUI.
-@ComfyNode(my_category, return_names=["below_threshold", "above_threshold"], color="#0066cc", bg_color="#ffcc00")
-def threshold_image(
-    image: ImageTensor, threshold_value: float = NumberInput(0.5, 0, 1, 0.0001, display="slider")
-) -> tuple[MaskTensor, MaskTensor]:
-    # Create a mask where any channel is below the threshold value.
+@ComfyNode("Example category", color="#0066cc", bg_color="#ffcc00")
+def threshold_image(image: ImageTensor, threshold_value: float = NumberInput(0.5, 0, 1, 0.0001, display="slider")) -> tuple[MaskTensor, MaskTensor]:
+    """Returns separate masks for values above and below the threshold value."""
     mask_below = torch.any(image < threshold_value, dim=-1)
-    
     return mask_below.float(), (~mask_below).float()
 
 
