@@ -600,7 +600,7 @@ def _ensure_package_dicts_exist(module_name: str):
 
 
 
-def ComfyFunc(
+def ComfyNode(
     category: str = None,
     display_name: str = None,
     workflow_name: str = None,
@@ -1137,7 +1137,7 @@ def create_field_setter_node(cls: type, category=None, extra_imports: list[str] 
     if debug:
         logging.info(f"Registering setter for class '{cls.__name__}'")
     register_type(cls, name=cls.__name__)
-    ComfyFunc(category, display_name=cls.__name__, workflow_name=cls.__name__, debug=debug)(
+    ComfyNode(category, display_name=cls.__name__, workflow_name=cls.__name__, debug=debug)(
         _create_dynamic_setter(cls, extra_imports=extra_imports))
 
 
