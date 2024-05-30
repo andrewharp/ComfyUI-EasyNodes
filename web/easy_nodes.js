@@ -51,39 +51,24 @@ app.registerExtension({
     );
   },
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
-    if (nodeData?.description.startsWith("easy_nodes")) {
-      const lines = nodeData.description.split('\n').slice(1);
-      var fgColor = null;
-      var bgColor = null;
-      var nodeSource = null;
-      var outputLines = [];
-      for (const line of lines) {
-        if (line.startsWith('ComfyUINodeColor=')) {
-          const color = line.split('=')[1];
-          fgColor = color;
-        } else if (line.startsWith('ComfyUINodeBgColor=')) {
-          const color = line.split('=')[1];
-          bgColor = color;
-        } else if (line.startsWith('NodeSource=')) {
-          const source = line.split('=')[1];
-          nodeSource = source;
-        } else {
-          outputLines.push(line);
-        }
-      }
-      nodeData.description = outputLines.join('\n');
+    const easyNodesJsonPrefix = "EasyNodesInfo=";
+    if (nodeData?.description.startsWith(easyNodesJsonPrefix)) {
+      const [nodeInfo, ...descriptionLines] = nodeData.description.split('\n');
+      const { color, bgColor, sourceLocation } = JSON.parse(nodeInfo.replace(easyNodesJsonPrefix, ""));
+
+      nodeData.description = descriptionLines.join('\n');
 
       const editorPathPrefix = app.ui.settings.getSettingValue(editorPathPrefixId);
 
       function applyColorsAndSource() {
-        if (fgColor) {
-          this.color = fgColor;
+        if (color) {
+          this.color = color;
         }
         if (bgColor) {
           this.bgcolor = bgColor;
         }
-        if (nodeSource && editorPathPrefix) {
-          this.sourceLoc = editorPathPrefix + nodeSource;
+        if (sourceLocation && editorPathPrefix) {
+          this.sourceLoc = editorPathPrefix + sourceLocation;
         }
         this.description = nodeData.description;
       }
@@ -106,7 +91,6 @@ app.registerExtension({
         const widgetValsLength = this.widgets_values?.length ?? 0;
         
         const numShowVals = widgetValsLength - this.origWidgetCount;
-        console.log("numShowVals", numShowVals, widgetValsLength, this.origWidgetCount);
         resizeShowValueWidgets(this, numShowVals, app);
 
         for (let i = 0; i < numShowVals; i++) {
@@ -128,7 +112,7 @@ app.registerExtension({
           this.showValueWidgets[i].value = message.text[i];
         }
 
-        this.setSize( this.computeSize() );
+        this.setSize(this.computeSize());
         this.setDirtyCanvas(true, true);
         app.graph.setDirtyCanvas(true, true);
       }

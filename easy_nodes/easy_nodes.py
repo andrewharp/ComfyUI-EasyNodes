@@ -6,6 +6,7 @@ import hashlib
 import importlib
 import inspect
 import io
+import json
 import logging
 import math
 import os
@@ -1033,22 +1034,24 @@ def _create_comfy_node(
 ):
     all_inputs = {"required": required_inputs, "hidden": hidden_inputs, "optional": optional_inputs}
     
-    description = "easy_nodes\n" + (description or "")
-    
-    # Smuggle the color in with the description. Bit of a hack,
-    # but afaict there's no way to pass it directly.
+    node_info = {}
     if color is not None:
         color_rgb = hex_to_color(color)
-        description += f"\nComfyUINodeColor={color}"
+        node_info["color"] = color
         if not bg_color:
             bg_color = "#" + "".join(f"{int(c * 0.6):02X}" for c in color_rgb)
             
     if bg_color is not None:
         _ = hex_to_color(bg_color)  # Check that it's a valid color
-        description += f"\nComfyUINodeBgColor={bg_color}"
+        node_info["bgColor"] = bg_color
 
     if source_location is not None:
-        description += f"\nNodeSource={source_location}"
+        node_info["sourceLocation"] = source_location
+
+    # Smuggle it in with the description. A bit hacky, but it works and I 
+    # don't know of a better way to do it without modifying the ComfyUI code.
+    if node_info:
+        description = f"EasyNodesInfo={json.dumps(node_info)}\n" + description
 
     # Initial class dictionary setup
     class_dict = {
