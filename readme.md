@@ -9,7 +9,7 @@ For example:
 from easy_nodes import ComfyNode, ImageTensor, MaskTensor, initialize_easy_nodes
 easy_nodes.initialize_easy_nodes()
 
-@ComfyNode("Example category", color="#0066cc", bg_color="#ffcc00")
+@ComfyNode("Example category", color="#0066cc", bg_color="#ffcc00", return_names=["Below", "Above"])
 def threshold_image(image: ImageTensor, threshold_value: float = NumberInput(0.5, 0, 1, 0.0001, display="slider")) -> tuple[MaskTensor, MaskTensor]:
     """Returns separate masks for values above and below the threshold value."""
     mask_below = torch.any(image < threshold_value, dim=-1)
@@ -18,6 +18,9 @@ def threshold_image(image: ImageTensor, threshold_value: float = NumberInput(0.5
 
 That's it! Now your node is ready for ComfyUI. More examples can be found [here](example/example_nodes.py).
 
+<img src="assets/threshold_example.png" alt="The new node with tooltip" width="50%">
+
+
 Note that ImageTensor/MaskTensor are just syntactic sugar for semantically differentiating the annotations (allowing ComfyUI to know what plugs into what); your function will still get passed genunine torch.Tensor objects.
 
 For more control, you can call easy_nodes.init(...) and change some settings that will apply to all nodes you create.
@@ -25,12 +28,12 @@ For more control, you can call easy_nodes.init(...) and change some settings tha
 ## New in 0.3:
 
 - Renamed to ComfyUI-EasyNodes (from ComfyUI-Annotations) to better reflect the package's goal (rather than the means)
-- Module reloading: automatically reload your nodes when you edit the source to speed up dev iteration time
-- LLM-based debugging
-- Set node colors (without touching JavaScript)
-- Add preview text and images to nodes (without touching JavaScript)
-- Show info tooltips and source links for EasyNodes nodes
-- A few bug fixes
+- Automatic module reloading: if you edit your node source, immediately see the changes
+- LLM-based debugging: optionally have ChatGPT take a crack at fixing your code
+- Set node colors via Python argument (no JavaScript required)
+- Add preview text and images to nodes via show_text and show_image Python functions, no JavaScript required.
+- Tooltips and deep links to node source code
+- Bug fixes
 
 ## Features
 

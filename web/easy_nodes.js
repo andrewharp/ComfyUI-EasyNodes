@@ -201,12 +201,11 @@ LGraphCanvas.prototype.processMouseMove = function(e) {
 
   const desc = node.description?.trim();
   if (node.link && isInsideRectangle(e.canvasX, e.canvasY, linkX, linkY, linkWidth, linkHeight)) {
-      console.log("pointer!");
       this.canvas.style.cursor = "pointer";
-  }
-  
-  if (desc && isInsideRectangle(e.canvasX, e.canvasY, infoX, infoY, infoWidth, infoHeight)) {
-      console.log("help! ", desc);
+      this.tooltip_text = node.link;
+      this.tooltip_pos = [e.canvasX, e.canvasY];
+      this.dirty_canvas = true;
+  } else if (desc && isInsideRectangle(e.canvasX, e.canvasY, infoX, infoY, infoWidth, infoHeight)) {
       this.canvas.style.cursor = "help";
       this.tooltip_text = desc;
       this.tooltip_pos = [e.canvasX, e.canvasY];
