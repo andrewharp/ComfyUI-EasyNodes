@@ -1,4 +1,3 @@
-import logging
 from random import random
 from easy_nodes import (
     NumberInput,
@@ -9,19 +8,16 @@ from easy_nodes import (
     Choice,
 )
 import easy_nodes
-from easy_nodes.easy_nodes import add_preview_text
 import torch
 
 
 my_category = "EasyNodes Examples"
 
-logging.error("Hello World!")
-
 # By default EasyNodes will auto-register any decorated function.
 # If you want to manually register your nodes the regular way, turn off
 # auto_register and export the easy_nodes.NODE_CLASS_MAPPINGS and easy_nodes.NODE_DISPLAY_NAME_MAPPINGS
 # dicts.
-easy_nodes.init(default_category=my_category, auto_register=True)
+easy_nodes.initialize_easy_nodes(default_category=my_category, auto_register=True)
 
 # This is the converted example node from ComfyUI's example_node.py.example file.
 @ComfyNode(my_category)
@@ -54,6 +50,12 @@ def another_function(foo: float = 1.0):
 ComfyNode(my_category, is_changed=lambda: random.random())(another_function)
 
 
+@ComfyNode(my_category)
+def create_random_image(width: int=NumberInput(128, 128, 1024), 
+                        height: int=NumberInput(128, 128, 1024)) -> ImageTensor:
+    return torch.rand((1, height, width, 3))
+
+
 # You can also wrap a method on a class and thus maintain state between calls.
 #
 # Note that you can only expose one method per class, and you have to define the
@@ -81,7 +83,7 @@ ComfyNode(
 # Preview text and images right in the nodes.
 @ComfyNode(my_category, is_output_node=True)
 def preview_example(str2: str = StringInput("")) -> str:
-    add_preview_text(f"hello: {str2}")
+    easy_nodes.add_preview_text(f"hello: {str2}")
     return str2
 
 

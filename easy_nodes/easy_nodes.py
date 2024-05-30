@@ -64,7 +64,7 @@ _easy_nodes_config = EasyNodesConfig()
 _current_config = None
 
 
-def init(default_category: str = "EasyNodes", 
+def initialize_easy_nodes(default_category: str = "EasyNodes", 
          auto_register: bool = True, 
          docstring_mode: AutoDescriptionMode = AutoDescriptionMode.FULL, 
          verify_tensors: bool = False,
@@ -115,7 +115,7 @@ def get_node_mappings():
 def _get_curr_config():
     if _current_config is None:
         logging.warning("EasyNodes not initialized. Call easy_nodes.init() before using ComfyFunc.")
-        easy_nodes.init()
+        easy_nodes.initialize_easy_nodes()
     return _current_config
 
 
