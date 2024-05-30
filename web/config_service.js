@@ -1,3 +1,4 @@
+// Passes config values from JavaScript up to Python via config_service.py
 // Adapted from https://github.com/rgthree/rgthree-comfy
 
 export function getObjectValue(obj, objKey, def) {

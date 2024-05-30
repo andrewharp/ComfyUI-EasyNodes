@@ -5,6 +5,7 @@ import re
 from server import PromptServer
 from aiohttp import web
 
+# Receives config values from config_service.js
 # Code in this file adapted from https://github.com/rgthree/rgthree-comfy
 
 def get_dict_value(data: dict, dict_key: str, default = None):
