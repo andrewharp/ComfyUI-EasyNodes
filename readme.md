@@ -26,11 +26,11 @@ For more control, you can call easy_nodes.init(...) and change some settings tha
 - **Built-in text and image previews**: Just call easy_nodes.add_preview_text() and easy_nodes.add_preview_image() in the body of your function and EasyNodes will automatically display it, no JavaScript hacking required.
 - **Set node color easily**: No messing with JavaScript, just tell the decorator what color you want the node to be.
 - **Type Support**: Includes several custom types (`ImageTensor`, `MaskTensor`, `NumberInput`, `Choice`, etc.) to support ComfyUI's connection semantics and UI functionality. Register additional types with `register_type`.
-- **Dual purpose**: @ComfyNode-decorated functions remain regular Python functions too. You can easily compose more complex nodes from the functions that define simpler ones.
 - **Automatic list and tuple handling**: Simply annotate the type as e.g. ```list[torch.Tensor]``` and your function will automatically make sure you get passed a list. It will also auto-tuple your return value for you internally (or leave it alone if you just want to copy your existing code).
 - **Init-time checking**: Less scratching your head when your operator doesn't fire off properly later. For example, if you copy-paste a node definition and forget to rename it, @ComfyNode will alert you immediately about duplicate nodes rather than simply overwriting the earlier definition.
 - **Supports most ComfyUI node definition features**: validate_input, is_output_node, etc can be specified as parameters to the ComfyNode decorator.
 - **Convert existing data classes to ComfyUI nodes**: pass `create_field_setter_node` a type, and it will automatically create a new node type with widgets to set all the fields.
+- **LLM-based debugging**: Optional debugging and auto-fixing of exceptions during node execution. Will automatically create a prompt with the relevent context and send it to ChatGPT, create a patch and fix your code.
 
 
 ## Installation

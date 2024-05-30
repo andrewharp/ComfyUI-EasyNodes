@@ -229,7 +229,7 @@ def register_type(
     is_auto_register: bool = False, 
     force_input: bool = False
 ):
-    """Register a type for ComfyUI annotations.
+    """Register a type for ComfyUI.
 
     Args:
         cls (type): The type to register.
