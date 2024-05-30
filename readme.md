@@ -25,7 +25,7 @@ Note that ImageTensor/MaskTensor are just syntactic sugar for semantically diffe
 
 For more control, you can call easy_nodes.init(...) and change some settings that will apply to all nodes you create.
 
-## New in 0.3:
+## New in 1.0.0:
 
 - Renamed to ComfyUI-EasyNodes (from ComfyUI-Annotations) to better reflect the package's goal (rather than the means)
 - Automatic module reloading: if you edit your node source, immediately see the changes
