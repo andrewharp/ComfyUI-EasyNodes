@@ -65,9 +65,9 @@ def extend_config(default_config, user_config):
 
 def set_user_config(data: dict):
   """ Sets the user configuration."""
-  logging.info(f"Setting user config: {data}")
   count = 0
   for key, value in data.items():
+    logging.info(f"Setting user config for: {key}")
     # if dict_has_key(USER_CONFIG, key):
     set_dict_value(USER_CONFIG, key, value, True)
     count+=1
