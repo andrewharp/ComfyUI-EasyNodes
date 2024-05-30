@@ -1,33 +1,45 @@
 # Effortless Nodes for ComfyUI
 
-This package aims to make adding new [ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes as easy as possible.
+This package aims to make adding new [ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes as easy as possible, and provide a some customization options through pure Python that were previously only accessible through JavaScript.
 
-It processes your function's Python signature to create the node definition ComfyUI is expecting, and all you have to do is annotate your inputs and outputs.
+It processes your function's Python signature to create the node definition ComfyUI is expecting. All you have to do is annotate your inputs and outputs and add the `@ComfyNode` decorator.
 
-In most cases you can just add a `@ComfyNode("category")` decorator to your existing function. For example:
+For example:
 ```python
-from easy_nodes import ComfyNode, ImageTensor, MaskTensor
+from easy_nodes import ComfyNode, ImageTensor, MaskTensor, initialize_easy_nodes
+easy_nodes.initialize_easy_nodes()
 
-@ComfyNode("Example category")
-def mask_image(image: ImageTensor, mask: MaskTensor) -> ImageTensor:
-    """Applies a mask to an image."""
-    return image * mask
+@ComfyNode("Example category", color="#0066cc", bg_color="#ffcc00")
+def threshold_image(image: ImageTensor, threshold_value: float = NumberInput(0.5, 0, 1, 0.0001, display="slider")) -> tuple[MaskTensor, MaskTensor]:
+    """Returns separate masks for values above and below the threshold value."""
+    mask_below = torch.any(image < threshold_value, dim=-1)
+    return mask_below.float(), (~mask_below).float()
 ```
 
-That's it! Now your operation is ready for ComfyUI. More example nodes can be found in [here](example/example_nodes.py).
+That's it! Now your node is ready for ComfyUI. More examples can be found [here](example/example_nodes.py).
 
 Note that ImageTensor/MaskTensor are just syntactic sugar for semantically differentiating the annotations (allowing ComfyUI to know what plugs into what); your function will still get passed genunine torch.Tensor objects.
 
 For more control, you can call easy_nodes.init(...) and change some settings that will apply to all nodes you create.
 
+## New in 0.3:
+
+- Renamed to ComfyUI-EasyNodes (from ComfyUI-Annotations) to better reflect the package's goal (rather than the means)
+- Module reloading: automatically reload your nodes when you edit the source to speed up dev iteration time
+- LLM-based debugging
+- Set node colors (without touching JavaScript)
+- Add preview text and images to nodes (without touching JavaScript)
+- Show info tooltips and source links for EasyNodes nodes
+- A few bug fixes
+
 ## Features
 
 - **@ComfyNode Decorator**: Simplifies the declaration of custom nodes with automagic node declaration based on Python type annotations. Existing Python functions can be converted to ComfyUI nodes with a simple "@ComfyNode()"
-- **Built-in text and image previews**: Just call easy_nodes.add_preview_text() and easy_nodes.add_preview_image() in the body of your function and EasyNodes will automatically display it, no JavaScript hacking required.
+- **Built-in text and image previews**: Just call `easy_nodes.add_preview_text()` and `easy_nodes.add_preview_image()` in the body of your function and EasyNodes will automatically display it, no JavaScript hacking required.
 - **Set node color easily**: No messing with JavaScript, just tell the decorator what color you want the node to be.
 - **Type Support**: Includes several custom types (`ImageTensor`, `MaskTensor`, `NumberInput`, `Choice`, etc.) to support ComfyUI's connection semantics and UI functionality. Register additional types with `register_type`.
 - **Automatic list and tuple handling**: Simply annotate the type as e.g. ```list[torch.Tensor]``` and your function will automatically make sure you get passed a list. It will also auto-tuple your return value for you internally (or leave it alone if you just want to copy your existing code).
-- **Init-time checking**: Less scratching your head when your operator doesn't fire off properly later. For example, if you copy-paste a node definition and forget to rename it, @ComfyNode will alert you immediately about duplicate nodes rather than simply overwriting the earlier definition.
+- **Init-time checking**: Less scratching your head when your node doesn't fire off properly later. For example, if you copy-paste a node definition and forget to rename it, @ComfyNode will alert you immediately about duplicate nodes rather than simply overwriting the earlier definition.
 - **Supports most ComfyUI node definition features**: validate_input, is_output_node, etc can be specified as parameters to the ComfyNode decorator.
 - **Convert existing data classes to ComfyUI nodes**: pass `create_field_setter_node` a type, and it will automatically create a new node type with widgets to set all the fields.
 - **LLM-based debugging**: Optional debugging and auto-fixing of exceptions during node execution. Will automatically create a prompt with the relevent context and send it to ChatGPT, create a patch and fix your code.
@@ -105,7 +117,7 @@ To use this module in your ComfyUI project, follow these steps:
    - `validate_inputs`: Maps to ComfyUI's VALIDATE_INPUTS.
    - `is_changed`: Maps to ComfyUI's IS_CHANGED.
    - `always_run`: Makes the node always run by generating a random IS_CHANGED.
-   - `debug`: A boolean that makes this operator print out extra information during its lifecycle.
+   - `debug`: A boolean that makes this node print out extra information during its lifecycle.
    - `color`: Changes the node's color.
    - `bg_color`: Changes the node's color. If color is set and not bg_color, bg_color will just be a slightly darker color.
 
