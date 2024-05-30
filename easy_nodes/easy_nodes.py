@@ -75,10 +75,10 @@ def init(default_category: str = "EasyNodes",
 
     Args:
         default_category (str, optional): The default category for nodes. Defaults to "EasyNodes".
-        auto_register (bool, optional): Whether to automatically register nodes. Defaults to True.
+        auto_register (bool, optional): Whether to automatically register nodes with ComfyUI (so you don't have to export). Defaults to True. Experimental.
         docstring_mode (AutoDescriptionMode, optional): The mode for generating node docstrings. Defaults to AutoDescriptionMode.FULL.
-        verify_tensors (bool, optional): Whether to verify tensors when connecting nodes. Defaults to False.
-        auto_move_tensors (bool, optional): Whether to automatically move tensors when connecting nodes. Defaults to False.
+        verify_tensors (bool, optional): Whether to verify tensors for shape and data type according to ComfyUI type (MASK, IMAGE, etc). Runs on inputs and outputs. Defaults to False.
+        auto_move_tensors (bool, optional): Whether to automatically move torch Tensors to the GPU before your function gets called, and then to the CPU on output. Defaults to False.
     """
     global _current_config
     if _current_config and _current_config.num_registered == 0:
@@ -871,6 +871,15 @@ def _annotate_input(
         
     if isinstance(default, Choice):
         return (default.choices,), False, False
+    
+    if debug:
+        logging.warning(f"Default: {default} type: {type(default)} {isinstance(default, float)} {isinstance(default, NumberInput)}")
+    
+    if isinstance(default, str) and not isinstance(default, StringInput):
+        default = StringInput(default)
+    elif isinstance(default, (int, float)) and not isinstance(default, NumberInput):
+        default = NumberInput(default)
+    
     if isinstance(default, StringInput) or isinstance(default, NumberInput):
         return (type_name, default.to_dict()), default.optional, default.hidden
 
