@@ -1,6 +1,6 @@
-import { app } from "/scripts/app.js";
+import { app } from '../../scripts/app.js'
+import { ComfyWidgets } from "../../scripts/widgets.js";
 import { createSetting } from "./config_service.js";
-import { ComfyWidgets } from "../../../scripts/widgets.js";
 
 const editorPathPrefixId = "easy_nodes.EditorPathPrefix";
 
@@ -43,7 +43,7 @@ function renderSourceLinkAndInfo(node, ctx, titleHeight) {
     node.link = link;
   }
   if (node.description?.trim()) {
-    ctx.fillText("ℹ️", node.size[0] - titleHeight - 20,
+    ctx.fillText("ℹ️", node.size[0] - titleHeight - node.linkWidth,
       LiteGraph.NODE_TITLE_TEXT_Y - titleHeight);
   }
 }
@@ -109,6 +109,7 @@ app.registerExtension({
         onNodeCreated?.apply(this, arguments);
         applyColorsAndSource.call(this);
         this.origWidgetCount = this.widgets?.length ?? 0;
+        this.linkWidth = 20;
       };
 
       // Apply colors and source location when configuring the node
@@ -150,7 +151,7 @@ app.registerExtension({
       const onDrawForeground = nodeType.prototype.onDrawForeground;
       nodeType.prototype.onDrawForeground = function (ctx, canvas, graphMouse) {
         onDrawForeground?.apply(this, arguments);
-        renderSourceLinkAndInfo(this, ctx, LiteGraph.NODE_TITLE_HEIGHT);
+        renderSourceLinkAndInfo(this, ctx, LiteGraph.NODE_TITLE_HEIGHT); 
       };
 
 
@@ -164,9 +165,9 @@ app.registerExtension({
       nodeType.prototype.onMouseDown = function (e, localPos, graphMouse) {
         onMouseDown?.apply(this, arguments);
         // console.log("onMouseDown", this.link, localPos);
-        if (isInsideRectangle(localPos[0], localPos[1], this.size[0] - LiteGraph.NODE_TITLE_HEIGHT,
-          -LiteGraph.NODE_TITLE_HEIGHT, LiteGraph.NODE_TITLE_HEIGHT, LiteGraph.NODE_TITLE_HEIGHT)) {
-          window.open(this.sourceLoc, "_blank");
+        if (this.link && !this.flags.collapsed && isInsideRectangle(localPos[0], localPos[1], this.size[0] - this.linkWidth,
+          -LiteGraph.NODE_TITLE_HEIGHT, this.linkWidth, LiteGraph.NODE_TITLE_HEIGHT)) {
+          window.open(this.link, "_blank");
         }
       };
     }
@@ -180,11 +181,7 @@ LGraphCanvas.prototype.processMouseMove = function(e) {
 
   var node = this.graph.getNodeOnPos(e.canvasX,e.canvasY,this.visible_nodes);
 
-  if (!node) {
-    return res;
-  }
-  
-  if (!this.canvas) {
+  if (!node || !this.canvas || node.flags.collapsed) {
     return res;
   }
 
@@ -203,14 +200,88 @@ LGraphCanvas.prototype.processMouseMove = function(e) {
   var linkHeight = LiteGraph.NODE_TITLE_HEIGHT;
 
   const desc = node.description?.trim();
-  if (node.link && !node.flags.collapsed && isInsideRectangle(e.canvasX, e.canvasY, linkX, linkY, linkWidth, linkHeight)) {
+  if (node.link && isInsideRectangle(e.canvasX, e.canvasY, linkX, linkY, linkWidth, linkHeight)) {
+      console.log("pointer!");
       this.canvas.style.cursor = "pointer";
-  } else if (desc && isInsideRectangle(e.canvasX, e.canvasY, infoX, infoY, infoWidth, infoHeight)) {
+  }
+  
+  if (desc && isInsideRectangle(e.canvasX, e.canvasY, infoX, infoY, infoWidth, infoHeight)) {
+      console.log("help! ", desc);
       this.canvas.style.cursor = "help";
       this.tooltip_text = desc;
       this.tooltip_pos = [e.canvasX, e.canvasY];
       this.dirty_canvas = true;
-  } 
+  } else {
+      this.tooltip_text = null;
+  }
 
   return res;
+};
+
+
+LGraphCanvas.prototype.drawNodeTooltip = function(ctx, text, pos) {
+    if (text === null) return;
+            
+    ctx.save();
+    ctx.font = "14px Consolas, 'Courier New', monospace";
+    
+    var lines = text.split('\n');
+    var lineHeight = 18;
+    var totalHeight = lines.length * lineHeight;
+    
+    var w = 0;
+    for (var i = 0; i < lines.length; i++) {
+        var info = ctx.measureText(lines[i].trim());
+        w = Math.max(w, info.width);
+    }
+    w += 20;
+    
+    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+    ctx.shadowBlur = 5;
+    
+    ctx.fillStyle = "#2E2E2E";
+    ctx.beginPath();
+    ctx.roundRect(pos[0] - w / 2, pos[1] - 15 - totalHeight, w, totalHeight, 5, 5);
+    ctx.moveTo(pos[0] - 10, pos[1] - 15);
+    ctx.lineTo(pos[0] + 10, pos[1] - 15);
+    ctx.lineTo(pos[0], pos[1] - 5);
+    ctx.fill();
+    
+    ctx.shadowColor = "transparent";
+    ctx.textAlign = "left";
+    
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        
+        // Render the colored line
+        var el = document.createElement('div');
+        
+        el.innerHTML = line;
+        
+        var parts = el.childNodes;
+        var x = pos[0] - w / 2 + 10;
+        
+        for (var j = 0; j < parts.length; j++) {
+            var part = parts[j];
+            ctx.fillStyle = "#E4E4E4";
+            ctx.fillText(part.textContent, x, pos[1] - 15 - totalHeight + (i + 0.8) * lineHeight);
+            x += ctx.measureText(part.textContent).width;
+        }
+    }
+    
+    ctx.restore();
+};
+
+const origdrawFrontCanvas = LGraphCanvas.prototype.drawFrontCanvas;
+LGraphCanvas.prototype.drawFrontCanvas = function() {
+  origdrawFrontCanvas.apply(this, arguments);
+  if (this.tooltip_text) {
+    console.log("draw tooltip", this.tooltip_text, this.tooltip_pos);
+    this.ctx.save();
+    this.ds.toCanvasContext(this.ctx);
+    this.drawNodeTooltip(this.ctx, this.tooltip_text, this.tooltip_pos);
+    this.ctx.restore();
+  }  
 };

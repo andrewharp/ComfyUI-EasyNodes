@@ -1,10 +1,9 @@
-import { app } from "../../../scripts/app.js";
+import { app } from "../../scripts/app.js";
 import { createSetting } from "./config_service.js";
-
 
 app.registerExtension({
   name: "easy_nodes.llm_debugging",
-  async setup(app) {
+  async setup() {
     createSetting(
       "easy_nodes.llm_debugging",
       "🧠 LLM Debugging",

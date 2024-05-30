@@ -1,5 +1,6 @@
 // Passes config values from JavaScript up to Python via config_service.py
 // Adapted from https://github.com/rgthree/rgthree-comfy
+import { app } from '../../scripts/app.js'
 
 export function getObjectValue(obj, objKey, def) {
     if (!obj || !objKey)
@@ -60,7 +61,6 @@ class ConfigService extends EventTarget {
         return getObjectValue(easyNodesConfig, key, def);
     }
     async setConfigValues(changed) {
-        console.log("setConfigValues", changed);
         const body = new FormData();
         body.append("json", JSON.stringify(changed));
         const response = await easyNodeApi.fetchJson("/config", { method: "POST", body });

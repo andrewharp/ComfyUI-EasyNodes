@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ComfyUI-EasyNodes"
-version = "0.2.1"
+version = "0.2.2"
 description = "Makes creating new nodes for ComfyUI a breeze."
 readme = "readme.md"
 authors = [{ name = "Andrew Harp", email = "andrew.harp@gmail.com" }]
@@ -15,6 +15,7 @@ dependencies = [
     "pillow",
     "colorama",
     "numpy",
+    "openai",
 ]
 
 [project.urls]
@@ -42,3 +43,4 @@ torch = "*"
 pillow = "*"
 colorama = "*"
 numpy = "*"
+openai = "*"
