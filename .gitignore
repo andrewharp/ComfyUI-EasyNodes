@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Don't check in personal configs.
+*config.json
+
 # C extensions
 *.so
 

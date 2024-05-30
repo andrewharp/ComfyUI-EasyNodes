@@ -1,14 +1,12 @@
-NODE_CLASS_MAPPINGS = {}
-NODE_DISPLAY_NAME_MAPPINGS = {}
+# Simply importing your module gives it a chance to add the @ComfyFunc nodes since
+# EasyNodes will automatically export the NODE_CLASS_MAPPINGS and NODE_DISPLAY_NAME_MAPPINGS
+# for you.
+import example.example_nodes  # noqa: F401
 
-# Add the @ComfyFunc nodes.
-import example.example_nodes
-import comfy_annotations
-NODE_CLASS_MAPPINGS.update(comfy_annotations.NODE_CLASS_MAPPINGS) 
-NODE_DISPLAY_NAME_MAPPINGS.update(comfy_annotations.NODE_DISPLAY_NAME_MAPPINGS)
 
-# Do whatever else you need to do to set up your non-ComfyFunc node types here. e.g.:
-# NODE_CLASS_MAPPINGS.update(example.example_nodes.NODE_CLASS_MAPPINGS) 
-# NODE_DISPLAY_NAME_MAPPINGS.update(example.example_nodes.NODE_DISPLAY_NAME_MAPPINGS)
-
-__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
+# Alternatively, to export yourself, you can do the following:
+# import easy_nodes
+# easy_nodes.init(auto_register=False)
+# import example.example_nodes
+# NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS = easy_nodes.get_node_mappings()
+# __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

@@ -3,33 +3,44 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "comfyui-annotations"
-version = "0.1.1"
-description = "An easier way to create custom nodes for ComfyUI via regular Python annotations"
+name = "ComfyUI-EasyNodes"
+version = "0.3.0"
+description = "Makes creating new nodes for ComfyUI a breeze."
 readme = "readme.md"
 authors = [{ name = "Andrew Harp", email = "andrew.harp@gmail.com" }]
 license = {file = "LICENSE"}
 requires-python = ">=3.10"
 dependencies = [
-    "torch>=1.10"
+    "torch",
+    "pillow",
+    "colorama",
+    "numpy",
+    "openai",
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/andrewharp/ComfyUI-Annotations"
-"Bug Reports" = "https://github.com/andrewharp/ComfyUI-Annotations/issues"
-"Source" = "https://github.com/andrewharp/ComfyUI-Annotations/"
+"Homepage" = "https://github.com/andrewharp/ComfyUI-EasyNodes"
+"Bug Reports" = "https://github.com/andrewharp/ComfyUI-EasyNodes/issues"
+"Source" = "https://github.com/andrewharp/ComfyUI-EasyNodes/"
+
+[tool.setuptools]
+packages = ["easy_nodes"]
 
 [tool.poetry]
-name = "comfyui-annotations"
-version = "0.1.1"
-description = "An easier way to create custom nodes for ComfyUI via regular Python annotations"
+name = "ComfyUI-EasyNodes"
+version = "0.3.0"
+description = "Makes creating new nodes for ComfyUI a breeze."
 authors = ["Andrew Harp <andrew.harp@gmail.com>"]
 license = "MIT"
-homepage = "https://github.com/andrewharp/ComfyUI-Annotations"
-repository = "https://github.com/andrewharp/ComfyUI-Annotations"
-documentation = "https://github.com/andrewharp/ComfyUI-Annotations"
+homepage = "https://github.com/andrewharp/ComfyUI-EasyNodes"
+repository = "https://github.com/andrewharp/ComfyUI-EasyNodes"
+documentation = "https://github.com/andrewharp/ComfyUI-EasyNodes"
 readme = "readme.md"
 
 [tool.poetry.dependencies]
 python = ">=3.10"
-torch = ">=1.10"
+torch = "*"
+pillow = "*"
+colorama = "*"
+numpy = "*"
+openai = "*"
