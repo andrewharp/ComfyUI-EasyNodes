@@ -22,6 +22,9 @@ dependencies = [
 "Bug Reports" = "https://github.com/andrewharp/ComfyUI-EasyNodes/issues"
 "Source" = "https://github.com/andrewharp/ComfyUI-EasyNodes/"
 
+[tool.setuptools]
+packages = ["easy_nodes"]
+
 [tool.poetry]
 name = "ComfyUI-EasyNodes"
 version = "0.2.1"
