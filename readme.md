@@ -200,7 +200,7 @@ Making the class extend a torch.Tensor is not necessary, but it will give you ni
 
 You can also automatically create nodes that will set all the fields in a class. Say you have a complex options class from a third-party library you want to pass to a node.
 
-```
+```python
 from some_library import ComplexOptions
 
 easy_nodes.register_type(ComplexOptions)
