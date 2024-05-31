@@ -30,12 +30,11 @@ import easy_nodes.llm_debugging as llm_debugging
 
 
 # Export the web directory so ComfyUI can pick up the JavaScript.
-_web_path = os.path.join(os.path.dirname(__file__), "..", "web")
-
+_web_path = os.path.join(os.path.dirname(__file__), "web")
 
 if os.path.exists(_web_path):
     comfyui_nodes.EXTENSION_WEB_DIRS["ComfyUI-EasyNodes"] = _web_path
-    logging.info(f"Registered ComfyUI-EasyNodes web directory: '{_web_path}'")
+    logging.debug(f"Registered ComfyUI-EasyNodes web directory: '{_web_path}'")
 else:
     logging.warning(f"ComfyUI-EasyNodes: Web directory not found at {_web_path}. Some features may not be available.")
 
@@ -85,7 +84,7 @@ def initialize_easy_nodes(default_category: str = "EasyNodes",
     if _current_config and _current_config.num_registered == 0:
         logging.warning("Re-initializing EasyNodes, but no Nodes have been registered since last initialization. This may indicate an issue.")
 
-    logging.info("Initializing EasyNodes.")
+    logging.info(f"Initializing EasyNodes. Auto-registration: {auto_register}")
         
     _current_config = dataclasses.replace(_easy_nodes_config)
     _current_config.default_category = default_category
@@ -98,7 +97,6 @@ def initialize_easy_nodes(default_category: str = "EasyNodes",
         _current_config.NODE_CLASS_MAPPINGS = comfyui_nodes.NODE_CLASS_MAPPINGS
         _current_config.NODE_DISPLAY_NAME_MAPPINGS = comfyui_nodes.NODE_DISPLAY_NAME_MAPPINGS
         frame = sys._getframe(1).f_globals['__name__']
-        logging.info(f"Auto-registering nodes for {frame}")
         _ensure_package_dicts_exist(frame)
     else:
         _current_config.NODE_CLASS_MAPPINGS = {}
