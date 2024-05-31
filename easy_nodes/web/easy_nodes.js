@@ -1,8 +1,13 @@
 import { app } from '../../scripts/app.js'
+import { api } from '../../scripts/api.js'
 import { ComfyWidgets } from "../../scripts/widgets.js";
 import { createSetting } from "./config_service.js";
 
+
+const sourcePathPrefixId = "easy_nodes.SourcePathPrefix";
 const editorPathPrefixId = "easy_nodes.EditorPathPrefix";
+const reloadOnEditId = "easy_nodes.ReloadOnEdit";
+
 
 function resizeShowValueWidgets(node, numValues, app) {
   const numShowValueWidgets = (node.showValueWidgets?.length ?? 0);
@@ -60,19 +65,19 @@ app.registerExtension({
   name: "EasyNodes",
   async setup() {
     createSetting(
-      "easy_nodes.SourcePathPrefix",
-      "🪄 Stack trace remove prefix (common prefix to remove, e.g '/home/user/project/')",
-      "text",
-      ""
-    );
-    createSetting(
       editorPathPrefixId,
       "🪄 Stack trace link prefix (makes stack traces clickable, e.g. 'vscode://vscode-remote/wsl+Ubuntu')",
       "text",
       ""
     );
     createSetting(
-      "easy_nodes.ReloadOnEdit",
+      sourcePathPrefixId,
+      "🪄 Stack trace remove prefix (common prefix to remove, e.g '/home/user/project/')",
+      "text",
+      ""
+    );
+    createSetting(
+      reloadOnEditId,
       "🪄 Auto-reload EasyNodes source files on edits.",
       "boolean",
       false,
@@ -81,7 +86,7 @@ app.registerExtension({
 
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
     const easyNodesJsonPrefix = "EasyNodesInfo=";
-    if (nodeData?.description.startsWith(easyNodesJsonPrefix)) {
+    if (nodeData?.description?.startsWith(easyNodesJsonPrefix)) {
       // EasyNodes metadata will be crammed into the first line of the description in json format.
       const [nodeInfo, ...descriptionLines] = nodeData.description.split('\n');
       const { color, bgColor, sourceLocation } = JSON.parse(nodeInfo.replace(easyNodesJsonPrefix, ""));
@@ -277,10 +282,109 @@ const origdrawFrontCanvas = LGraphCanvas.prototype.drawFrontCanvas;
 LGraphCanvas.prototype.drawFrontCanvas = function() {
   origdrawFrontCanvas.apply(this, arguments);
   if (this.tooltip_text) {
-    console.log("draw tooltip", this.tooltip_text, this.tooltip_pos);
     this.ctx.save();
     this.ds.toCanvasContext(this.ctx);
     this.drawNodeTooltip(this.ctx, this.tooltip_text, this.tooltip_pos);
     this.ctx.restore();
   }  
 };
+
+
+const formatExecutionError = function(error) {
+  if (error == null) {
+    return "(unknown error)";
+  }
+
+  // Joining the traceback if it's an array, or directly using it if it's already a string
+  let traceback = Array.isArray(error.traceback) ? error.traceback.join("") : error.traceback;
+  let exceptionMessage = error.exception_message;
+
+  const nodeId = error.node_id;
+  const nodeType = error.node_type;
+
+  // Regular expression to match "File _, in_ " patterns
+  const fileLineRegex = /File "(.+)", line (\d+), in .+/g;
+
+  // Replace "File _, in_ " patterns with "<path>:<line>"
+  traceback = traceback.replace(fileLineRegex, "$1:$2");
+  exceptionMessage = exceptionMessage.replace(fileLineRegex, "$1:$2");
+
+  const editorPathPrefix = this.ui.settings.getSettingValue(editorPathPrefixId);
+  const filePathPrefix = this.ui.settings.getSettingValue(sourcePathPrefixId);
+
+  let formattedExceptionMessage = exceptionMessage;
+  let formattedTraceback = traceback;
+
+  if (editorPathPrefix) {
+    // Escape special characters in filePathPrefix to be used in a regular expression
+    const escapedPathPrefix = filePathPrefix ? filePathPrefix.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') : "";
+
+    // Creating the regular expression using RegExp constructor to match file paths
+    const filePathRegex = new RegExp(`(${escapedPathPrefix || "/"})(.*?):(\\d+)`, 'g');
+
+    // Replace "<path>:<line>" patterns with links in the exception message
+    formattedExceptionMessage = exceptionMessage.replace(filePathRegex, (match, prefix, p1, p2) => {
+        const displayPath = filePathPrefix ? p1 : `${prefix}${p1}`;
+        return `<a href="${editorPathPrefix}${prefix}${p1}:${p2}" style="color:orange">${displayPath}:${p2}</a>`;
+      });
+
+    // Check if the exception message contains "<path>:<line>" matches
+    const hasFileLineMatches = filePathRegex.test(exceptionMessage);
+
+    if (!hasFileLineMatches) {
+      // Replace "<path>:<line>" patterns with links in the traceback
+      formattedTraceback = traceback.replace(filePathRegex, (match, prefix, p1, p2) => {
+          const displayPath = filePathPrefix ? p1 : `${prefix}${p1}`;
+          return `<a href="${editorPathPrefix}${prefix}${p1}:${p2}" style="color:orange">${displayPath}:${p2}</a>`;
+        });
+    }
+  }
+
+  let formattedOutput = `Error occurred when executing <span style="color:red" class="custom-error">${nodeType} [${nodeId}]</span>:\n\n` +
+              `<span style="color:white">${formattedExceptionMessage}</span>`;
+
+  if (formattedTraceback !== exceptionMessage) {
+    formattedOutput += `\n\n<span style="color:lightblue">${formattedTraceback}</span>`;
+  }
+
+  return formattedOutput;
+}
+
+
+var otherShow = null;
+const customShow = function(html) {
+  // Check if it's an exception.
+  if (!html.includes("Error occurred when executing")) {
+    return otherShow.apply(this, arguments);
+  }
+
+  // We know it's an exception now, make sure that only 
+  // processed errors get displayed.
+  if (html.includes('class="custom-error"')) {
+    console.log("Special index found!");
+    return otherShow.apply(this, arguments);
+  }
+};
+
+
+api.addEventListener("execution_error", function(e) {
+  // Make the dialog upgrade opt-in.
+  // If the user hasn't set the editor path prefix or the file path prefix, don't do anything.
+  const editorPathPrefix = app.ui.settings.getSettingValue(editorPathPrefixId);
+  const filePathPrefix =  app.ui.settings.getSettingValue(sourcePathPrefixId);
+  if (!editorPathPrefix && !filePathPrefix) {
+    console.log(editorPathPrefix, filePathPrefix);
+    return;
+  }
+
+  // Replace the default dialog.show with our custom one if we haven't already.
+  // We can't do it earlier because somebody else might have grabbed it.
+  if (!otherShow) {
+    otherShow = app.ui.dialog.show;
+    app.ui.dialog.show = customShow;
+  }
+  const formattedError = formatExecutionError.call(app, e.detail);
+  app.ui.dialog.show(formattedError);
+  app.canvas.draw(true, true);
+});
+console.log("Overwrote it!");
