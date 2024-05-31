@@ -1,4 +1,2 @@
 include easy_nodes/*.py
 include easy_nodes/web/*
-include web/*
-include data/*

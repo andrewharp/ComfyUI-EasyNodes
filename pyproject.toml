@@ -24,16 +24,16 @@ dependencies = [
 "Source" = "https://github.com/andrewharp/ComfyUI-EasyNodes/"
 
 [tool.setuptools.packages.find]
-where = ["easy_nodes"]
-include = []
+where = ["."]
+include = ["easy_nodes"]
 exclude = ["web"]
 
 [tool.setuptools.package-data]
-"*" = ["*.js"]
+"*" = ["web/**/*"]
 
 [tool.poetry]
-name = "ComfyUI-EasyNodes"
-version = "1.0.2"
+name = "comfyui-easynodes"
+version = "1.0.3"
 description = "Makes creating new nodes for ComfyUI a breeze."
 authors = ["Andrew Harp <andrew.harp@gmail.com>"]
 license = "MIT"
@@ -41,7 +41,8 @@ homepage = "https://github.com/andrewharp/ComfyUI-EasyNodes"
 repository = "https://github.com/andrewharp/ComfyUI-EasyNodes"
 documentation = "https://github.com/andrewharp/ComfyUI-EasyNodes"
 readme = "readme.md"
-include = ["web/**/*"]
+packages = [{ include = "easy_nodes" }]
+include = ["easy_nodes/web/**/*"]
 
 
 [tool.poetry.dependencies]
