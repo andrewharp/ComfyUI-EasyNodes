@@ -175,8 +175,8 @@ The settings mostly control defaults and some optional features that I find nice
     Example:
     ```python
     @ComfyNode("Utilities")
-    def add_value(the_list: list[ImageTensor], val: int) -> list[int]:
-        return [img + the_value for img in the_list]
+    def add_value(img_list: list[ImageTensor], val: int) -> list[int]:
+        return [img + val for img in img_list]
     ```
 
 ### Registering new types:
