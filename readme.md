@@ -18,7 +18,13 @@ def threshold_image(image: ImageTensor, threshold_value: float = NumberInput(0.5
 
 That's it! Now your node is ready for ComfyUI. More examples can be found [here](example/example_nodes.py).
 
+Sample node with tooltip and deep source link:
+
 <img src="assets/threshold_example.png" alt="The new node with tooltip" width="50%">
+
+New settings:
+
+<img src="assets/menu_options.png" alt="New menu options" width="50%">
 
 
 Note that ImageTensor/MaskTensor are just syntactic sugar for semantically differentiating the annotations (allowing ComfyUI to know what plugs into what); your function will still get passed genunine torch.Tensor objects.

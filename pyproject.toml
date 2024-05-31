@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ComfyUI-EasyNodes"
-version = "1.0.2"
+version = "1.0.3"
 description = "Makes creating new nodes for ComfyUI a breeze."
 readme = "readme.md"
 authors = [{ name = "Andrew Harp", email = "andrew.harp@gmail.com" }]
@@ -23,8 +23,13 @@ dependencies = [
 "Bug Reports" = "https://github.com/andrewharp/ComfyUI-EasyNodes/issues"
 "Source" = "https://github.com/andrewharp/ComfyUI-EasyNodes/"
 
-[tool.setuptools]
-packages = ["easy_nodes"]
+[tool.setuptools.packages.find]
+where = ["easy_nodes"]
+include = []
+exclude = ["web"]
+
+[tool.setuptools.package-data]
+"*" = ["*.js"]
 
 [tool.poetry]
 name = "ComfyUI-EasyNodes"
@@ -37,6 +42,7 @@ repository = "https://github.com/andrewharp/ComfyUI-EasyNodes"
 documentation = "https://github.com/andrewharp/ComfyUI-EasyNodes"
 readme = "readme.md"
 include = ["web/**/*"]
+
 
 [tool.poetry.dependencies]
 python = ">=3.10"
