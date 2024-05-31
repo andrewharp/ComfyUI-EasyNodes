@@ -124,7 +124,21 @@ To use this module in your ComfyUI project, follow these steps:
 
     </details>
 
-## Usage
+
+## Initialization options
+
+The options passed to `easy_nodes.initialize_easy_nodes` will apply to all nodes registered until the next time `easy_nodes.initialize_easy_nodes` is called.
+
+The settings mostly control defaults and some optional features that I find nice to have, but which may not work for everybody, so some are turned off by default.
+
+    - `default_category`: The default category for nodes. Defaults to "EasyNodes".
+    - `auto_register`: Whether to automatically register nodes with ComfyUI (so you don't have to export). Defaults to True.
+    - `docstring_mode`: The mode for generating node descriptions that show up in tooltips. Defaults to AutoDescriptionMode.FULL.
+    - `verify_tensors`: Whether to verify tensors for shape and data type according to ComfyUI type (MASK, IMAGE, etc). Runs on inputs and outputs. Defaults to False, as I've made some assumptions about shapes that may not be universal.
+    - `auto_move_tensors`: Whether to automatically move torch Tensors to the GPU before your function gets called, and then to the CPU on output. Defaults to False.
+
+
+## Using the decorator
 
 1. **Annotate Functions with @ComfyNode**: Decorate your processing functions with `@ComfyNode`. The decorator accepts the following parameters:
    - `category`: Specifies the category under which the node will be listed in ComfyUI. Default is `"ComfyNode"`.
@@ -163,6 +177,38 @@ To use this module in your ComfyUI project, follow these steps:
     def add_value(the_list: list[ImageTensor], val: int) -> list[int]:
         return [img + the_value for img in the_list]
     ```
+
+### Registering new types:
+
+Say you want a new type of special Tensor that ComfyUI will treat differently from Images. Say, a rotation matrix. Just create a placeholder class for it and use that in your annotations -- it's just for semantics; internally your functions will get whatever type of class they're handed.
+
+```python
+class RotationMatrix(torch.Tensor):
+    def __init__(self):
+        raise TypeError("!") # Will never be instantiated
+
+easy_nodes.register_type(RotationMatrix, "ROTATION_MATRIX")
+
+@ComfyNode()
+def rotate_matrix_more(rot1: RotationMatrix, rot2: RotationMatrix) -> RotationMatrix:
+    return rot1 * rot2
+```
+
+Making the class extend a torch.Tensor is not necessary, but it will give you nice type hints in IDEs.
+
+### Creating dynamic nodes from classes
+
+You can also automatically create nodes that will set all the fields in a class. Say you have a complex options class from a third-party library you want to pass to a node.
+
+```
+from some_library import ComplexOptions
+
+easy_nodes.register_type(ComplexOptions)
+
+easy_nodes.create_field_setter_node(ComplexOptions)
+```
+
+Now you should be should find a node named ComplexOptionsClass that will have all the basic field types (str, int, float) exposed as widgets.
 
 ### Example Node Definition from ComfyUI's [example_node.py.example](https://github.com/comfyanonymous/ComfyUI/blob/master/custom_nodes/example_node.py.example), converted:
 

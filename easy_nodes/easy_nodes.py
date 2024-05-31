@@ -222,7 +222,8 @@ _DEFAULT_FORCE_INPUT = {}
 
 
 def register_type(
-    cls, name: str, 
+    cls: type, 
+    name: str = None, 
     should_autoconvert: bool = False, 
     is_auto_register: bool = False, 
     force_input: bool = False
@@ -236,6 +237,9 @@ def register_type(
         is_auto_register (bool, optional): Whether the type is automatically registered. Defaults to False.
         force_input (bool, optional): Whether the type should be forced as an input. Defaults to False.
     """
+    if name is None:
+        name = cls.__name__
+    
     key = _get_fully_qualified_name(cls)
     # if not is_auto_register:
     #     assert key not in _ANNOTATION_TO_COMFYUI_TYPE, f"Type {cls} already registered."
@@ -277,7 +281,7 @@ _tensor_types = {
 }
 
 
-def _get_type_str(the_type) -> str:
+def _get_type_str(the_type: type) -> str:
     key = _get_fully_qualified_name(the_type)
     if key not in _ANNOTATION_TO_COMFYUI_TYPE and get_origin(the_type) is list:
         return _get_type_str(get_args(the_type)[0])
@@ -1128,38 +1132,50 @@ def _get_node_class(func):
 T = typing.TypeVar("T")
 
 
-def create_field_setter_node(cls: type, category=None, extra_imports: list[str] = [], debug=False) -> typing.Callable[..., T]:
+def create_field_setter_node(cls: type, category=None, debug=False) -> typing.Callable[..., T]:
     if category is None:
         category = _get_curr_config().default_category
-    
     if debug:
         logging.info(f"Registering setter for class '{cls.__name__}'")
-    register_type(cls, name=cls.__name__)
+    key = _get_fully_qualified_name(cls)
+    assert key in _ANNOTATION_TO_COMFYUI_TYPE, f"Type '{key}' not registered with ComfyUI, call register_type() and give it a name first."
+    dynamic_function = _create_dynamic_setter(cls, debug=debug)
     ComfyNode(category, display_name=cls.__name__, workflow_name=cls.__name__, debug=debug)(
-        _create_dynamic_setter(cls, extra_imports=extra_imports))
+        dynamic_function)
 
 
-def _create_dynamic_setter(cls: type, extra_imports: list[str] = [], debug=False) -> typing.Callable[..., T]:
+def _create_dynamic_setter(cls: type, debug=False) -> typing.Callable[..., T]:
     obj = cls()
     func_name = cls.__name__
     setter_name = func_name + "_setter"
-    return_type = f"{cls.__module__}.{cls.__name__}"
-
+    
     properties = {}
-    module_names = set()
+    all_type_names = set([])
 
-    # Collect properties and infer types from their current instantiated values
-    for attr_name in dir(cls):
-        attr = getattr(cls, attr_name, None)
-        if attr and isinstance(attr, property) and attr.fset is not None:
-            current_value = getattr(obj, attr_name, None)
-            prop_type = type(current_value) if current_value is not None else typing.Any
-            properties[attr_name] = (prop_type, current_value)
+    # Collect properties and infer types from their current instantiated values.
+    for attr_name in dir(obj):
+        attr = getattr(obj, attr_name, None)
+        if attr is not None and not callable(attr) and not attr_name.startswith("__"):
+            if isinstance(attr, property) and attr.fset is not None:
+                # Handle properties
+                current_value = getattr(obj, attr_name, None)
+                prop_type = type(current_value) if current_value is not None else typing.Any
+                properties[attr_name] = (prop_type, current_value)
 
-            if debug:
-                logging.info(
-                    f"Property '{attr_name}' has type '{prop_type}' and value '{current_value}'"
-                )
+                if debug:
+                    logging.info(
+                        f"Property '{attr_name}' has type '{prop_type}' and value '{current_value}'"
+                    )
+            else:
+                # Handle instance attributes
+                current_value = getattr(obj, attr_name, None)
+                prop_type = type(current_value) if current_value is not None else typing.Any
+                properties[attr_name] = (prop_type, current_value)
+
+                if debug:
+                    logging.info(
+                        f"Instance attribute '{attr_name}' has type '{prop_type}' and value '{current_value}'"
+                    )
 
             # Automatically register the type and its subtypes, allowing duplicates
             register_type(
@@ -1174,66 +1190,58 @@ def _create_dynamic_setter(cls: type, extra_imports: list[str] = [], debug=False
                     )
 
             # Extract module name from the property type
-            module_name = _get_fully_qualified_name(prop_type).rsplit(".", 1)[0]
-            if "." in module_name:
-                module_names.add(module_name)
+            fully_qualled_name = _get_fully_qualified_name(prop_type)
+            if "." in fully_qualled_name:
+                all_type_names.add(fully_qualled_name)
 
-    # Extract module name from the return type
-    return_module = return_type.rsplit(".", 1)[0]
-    if "." in return_module:
-        module_names.add(return_module)
+    def get_default_value(prop_type, current_value):
+        default_values = {
+            int: f"NumberInput({current_value})",
+            float: f"NumberInput({current_value}, -1000000, 10000000, 0.0001)",
+            str: f"StringInput('{current_value}')",
+            bool: f"{current_value}",
+        }
+        return default_values.get(prop_type, "None")
 
     func_params = []
     for prop, (prop_type, current_value) in properties.items():
-        if prop_type == int:
-            func_params.append(
-                f"{prop}: {_get_fully_qualified_name(prop_type).replace('builtins.', '')}=NumberInput({current_value})"
-            )
-        elif prop_type == float:
-            func_params.append(
-                f"{prop}: {_get_fully_qualified_name(prop_type).replace('builtins.', '')}=NumberInput({current_value}, -1000000, 10000000, 0.0001)"
-            )
-        elif prop_type == str:
-            func_params.append(
-                f"{prop}: {_get_fully_qualified_name(prop_type).replace('builtins.', '')}=StringInput('{current_value}')"
-            )
-        elif prop_type == bool:
-            func_params.append(
-                f"{prop}: {_get_fully_qualified_name(prop_type).replace('builtins.', '')}={current_value}"
-            )
-        else:
-            func_params.append(
-                f"{prop}: {_get_fully_qualified_name(prop_type).replace('builtins.', '')}=None"
-            )
+        qualified_type_name = _get_fully_qualified_name(prop_type).replace('builtins.', '')
+        default_value = get_default_value(prop_type, current_value)
+        func_params.append(f"{prop}: {qualified_type_name}={default_value}")
 
-    func_params_str = ", ".join(func_params)
+    def_str = f"def {setter_name}("
+    join_str = ",\n" + " " * len(def_str)
+    func_params_str = join_str.join(func_params)
 
     # Generate import statements
     import_statements = [
         "import typing",
-        *[f"import {module_name}" for module_name in module_names],
         "import importlib",
         "from easy_nodes import NumberInput, StringInput",
+        # "import example.example_nodes",
     ]
     
-    for extra_import in extra_imports:
-        import_statements.append(f"import {extra_import}")
+    for module_name in all_type_names:
+        if module_name.startswith("builtins."):
+            continue
+        package_name, type_name = module_name.rsplit(".", 1)
+        import_statements.append(f"import {package_name}")
+        
+    # Alphabetize them and make unique
+    import_statements = sorted(list(dict.fromkeys(import_statements)))
 
     func_body_lines = [
-        f"module = importlib.import_module('{return_module}')",
         f"cls = getattr(module, '{func_name}')",
         "new_obj = cls()",
-        *[
-            f"if {prop} is not None: setattr(new_obj, '{prop}', {prop})"
-            for prop in properties.keys()
-        ],
-        "return new_obj",
     ]
-    func_body = "\n    ".join(func_body_lines)
-    func_code = (
-        "\n".join(import_statements)
-        + f"\n\ndef {setter_name}({func_params_str}) -> {return_type}:\n    {func_body}"
-    )
+    for prop in properties.keys():
+        func_body_lines.append(f"if {prop} is not None: setattr(new_obj, '{prop}', {prop})")
+    func_body_lines.append("return new_obj")
+    func_body_lines = [f"    {line}" for line in func_body_lines]
+    
+    func_lines = import_statements + [f"module = importlib.import_module('{cls.__module__}')",
+                                     f"{def_str}{func_params_str}) -> module.{cls.__name__}:"] + func_body_lines 
+    func_code = "\n".join(func_lines)
 
     if debug:
         logging.info(f"Creating dynamic setter with code: '{func_code}'")
@@ -1243,13 +1251,14 @@ def _create_dynamic_setter(cls: type, extra_imports: list[str] = [], debug=False
         "importlib": importlib,
         "NumberInput": NumberInput,
         "StringInput": StringInput,
+        "module": importlib.import_module(cls.__module__),
     }
     locals_dict = {}
 
     # Update the global namespace with the module names
-    for module_name in module_names:
-        globals_dict[module_name] = importlib.import_module(module_name)
-
+    # for module_name in module_names:
+    #     globals_dict[module_name] = importlib.import_module(module_name)
+    
     # Execute the function code
     exec(func_code, globals_dict, locals_dict)
 

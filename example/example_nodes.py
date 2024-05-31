@@ -51,6 +51,27 @@ def another_function(foo: float = 1.0):
 ComfyNode(my_category, is_changed=lambda: random.random())(another_function)
 
 
+# You can register arbitrary classes to be used as inputs or outputs.
+class MyFunClass:
+    def __init__(self):
+        self.width = 640
+        self.height = 640
+        self.color = 0.5        
+easy_nodes.register_type(MyFunClass, "FUN_CLASS")
+
+
+# If you don't want to create a node manually to create the class, you can use the
+# create_field_setter_node to automatically create a node that sets the fields on the class.
+easy_nodes.create_field_setter_node(MyFunClass)
+
+
+@ComfyNode(my_category, is_output_node=True, color="#4F006F")
+def my_fun_class_node_processor(fun_class: MyFunClass) -> ImageTensor:
+    print(f"Processing MyFunClass: {fun_class.width} {fun_class.height} {fun_class.color}")
+    my_image = torch.rand((1, fun_class.height, fun_class.width, 3)) * fun_class.color
+    return my_image
+
+
 @ComfyNode(my_category)
 def create_random_image(width: int=NumberInput(128, 128, 1024), 
                         height: int=NumberInput(128, 128, 1024)) -> ImageTensor:
@@ -163,6 +184,7 @@ def example_mask_image(image: ImageTensor,
                        value: float=NumberInput(0, 0, 1, 0.0001, display="slider")) -> ImageTensor:
     image = image.clone()
     image[mask == 0] = value
+    easy_nodes.show_image(image)
     return image
 
 

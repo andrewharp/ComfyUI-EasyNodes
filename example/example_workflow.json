@@ -1,107 +1,52 @@
 {
-  "last_node_id": 123,
-  "last_link_id": 193,
+  "last_node_id": 142,
+  "last_link_id": 203,
   "nodes": [
     {
-      "id": 49,
-      "type": "ConvertToImage",
-      "pos": [
-        747,
-        493
-      ],
-      "size": {
-        "0": 210,
-        "1": 26
-      },
-      "flags": {},
-      "order": 9,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "mask",
-          "type": "MASK",
-          "link": 192
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            125,
-            148
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "ConvertToImage"
-      },
-      "color": "#00FF00",
-      "bgcolor": "#009900"
-    },
-    {
-      "id": 71,
-      "type": "AnnotatedExample",
-      "pos": [
-        568,
-        71
-      ],
-      "size": {
-        "0": 315,
-        "1": 130
-      },
-      "flags": {},
-      "order": 5,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 100
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            149
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "AnnotatedExample"
-      },
-      "widgets_values": [
-        "Hello World!",
-        0,
-        1,
-        "enabled"
-      ]
-    },
-    {
-      "id": 108,
+      "id": 20,
       "type": "PreviewImage",
       "pos": [
-        1131,
-        -24
+        2520,
+        1110
       ],
       "size": {
         "0": 210,
         "1": 270
       },
       "flags": {},
-      "order": 8,
+      "order": 16,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 149
+          "link": 169
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 139,
+      "type": "PreviewImage",
+      "pos": [
+        2167,
+        1192
+      ],
+      "size": {
+        "0": 210,
+        "1": 246
+      },
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 203,
+          "slot_index": 0
         }
       ],
       "properties": {
@@ -112,8 +57,8 @@
       "id": 91,
       "type": "TextRepeater",
       "pos": [
-        -65,
-        912
+        409,
+        1155
       ],
       "size": {
         "0": 298.5838928222656,
@@ -145,8 +90,8 @@
       "id": 106,
       "type": "PreviewExample",
       "pos": [
-        361,
-        992
+        803,
+        1158
       ],
       "size": {
         "0": 210,
@@ -185,11 +130,183 @@
       ]
     },
     {
+      "id": 123,
+      "type": "ThresholdImage",
+      "pos": [
+        835.3350286956788,
+        659.3454330383307
+      ],
+      "size": {
+        "0": 315,
+        "1": 78
+      },
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 190
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            192,
+            194
+          ],
+          "shape": 3,
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            191
+          ],
+          "shape": 3,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ThresholdImage"
+      },
+      "widgets_values": [
+        0.5
+      ],
+      "color": "#0066cc",
+      "bgcolor": "#ffcc00"
+    },
+    {
+      "id": 49,
+      "type": "ConvertToImage",
+      "pos": [
+        1580.3350286956786,
+        645.3454330383307
+      ],
+      "size": {
+        "0": 210,
+        "1": 26
+      },
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 192
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            125
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ConvertToImage"
+      },
+      "color": "#00FF00",
+      "bgcolor": "#009900"
+    },
+    {
+      "id": 109,
+      "type": "CombineLists",
+      "pos": [
+        1902,
+        809
+      ],
+      "size": {
+        "0": 210,
+        "1": 46
+      },
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image1",
+          "type": "IMAGE",
+          "link": 163
+        },
+        {
+          "name": "image2",
+          "type": "IMAGE",
+          "link": 185
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            168
+          ],
+          "shape": 6,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CombineLists"
+      }
+    },
+    {
+      "id": 84,
+      "type": "CombineLists",
+      "pos": [
+        2187,
+        805
+      ],
+      "size": {
+        "0": 210,
+        "1": 46
+      },
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image1",
+          "type": "IMAGE",
+          "link": 125
+        },
+        {
+          "name": "image2",
+          "type": "IMAGE",
+          "link": 168
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            169,
+            193
+          ],
+          "shape": 6,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CombineLists"
+      }
+    },
+    {
       "id": 81,
       "type": "AddImages",
       "pos": [
-        1150,
-        311
+        2069,
+        513
       ],
       "size": {
         "0": 210,
@@ -231,29 +348,58 @@
       }
     },
     {
-      "id": 109,
-      "type": "CombineLists",
+      "id": 142,
+      "type": "MyFunClass",
       "pos": [
-        1096,
-        799
+        1479,
+        1202
       ],
       "size": {
-        "0": 210,
-        "1": 46
+        "0": 315,
+        "1": 106
       },
       "flags": {},
-      "order": 13,
+      "order": 1,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "FUN_CLASS",
+          "type": "FUN_CLASS",
+          "links": [
+            202
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MyFunClass"
+      },
+      "widgets_values": [
+        0.5,
+        640,
+        640
+      ]
+    },
+    {
+      "id": 141,
+      "type": "MyFunClassNodeProcessor",
+      "pos": [
+        1825,
+        1231
+      ],
+      "size": [
+        257.37260361251174,
+        46.323488864500405
+      ],
+      "flags": {},
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
-          "name": "image1",
-          "type": "IMAGE",
-          "link": 163
-        },
-        {
-          "name": "image2",
-          "type": "IMAGE",
-          "link": 185
+          "name": "fun_class",
+          "type": "FUN_CLASS",
+          "link": 202
         }
       ],
       "outputs": [
@@ -261,35 +407,79 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            168
+            203
           ],
-          "shape": 6,
+          "shape": 3,
           "slot_index": 0
         }
       ],
       "properties": {
-        "Node name for S&R": "CombineLists"
-      }
+        "Node name for S&R": "MyFunClassNodeProcessor"
+      },
+      "color": "#4F006F",
+      "bgcolor": "#2F0042"
     },
     {
-      "id": 107,
+      "id": 71,
+      "type": "AnnotatedExample",
+      "pos": [
+        1373,
+        106
+      ],
+      "size": {
+        "0": 315,
+        "1": 130
+      },
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 100
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            196
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AnnotatedExample"
+      },
+      "widgets_values": [
+        "Hello World!",
+        0,
+        1,
+        "enabled"
+      ]
+    },
+    {
+      "id": 125,
       "type": "PreviewImage",
       "pos": [
-        1387,
-        434
+        1929,
+        102
       ],
       "size": {
         "0": 210,
         "1": 270
       },
       "flags": {},
-      "order": 11,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 148
+          "link": 196
         }
       ],
       "properties": {
@@ -300,8 +490,8 @@
       "id": 15,
       "type": "PreviewImage",
       "pos": [
-        1665,
-        -116
+        2342,
+        383
       ],
       "size": {
         "0": 210,
@@ -322,218 +512,24 @@
       }
     },
     {
-      "id": 84,
-      "type": "CombineLists",
-      "pos": [
-        1373,
-        788
-      ],
-      "size": {
-        "0": 210,
-        "1": 46
-      },
-      "flags": {},
-      "order": 15,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image1",
-          "type": "IMAGE",
-          "link": 125
-        },
-        {
-          "name": "image2",
-          "type": "IMAGE",
-          "link": 168
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            169,
-            193
-          ],
-          "shape": 6,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CombineLists"
-      }
-    },
-    {
-      "id": 83,
-      "type": "ExampleMaskImage",
-      "pos": [
-        778,
-        627
-      ],
-      "size": {
-        "0": 210,
-        "1": 78
-      },
-      "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 116
-        },
-        {
-          "name": "mask",
-          "type": "MASK",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            163,
-            165
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "ExampleMaskImage"
-      },
-      "widgets_values": [
-        0
-      ],
-      "color": "#0000FF",
-      "bgcolor": "#000099"
-    },
-    {
-      "id": 119,
-      "type": "ExampleMaskImage",
-      "pos": [
-        683,
-        784
-      ],
-      "size": {
-        "0": 315,
-        "1": 78
-      },
-      "flags": {},
-      "order": 10,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 182
-        },
-        {
-          "name": "mask",
-          "type": "MASK",
-          "link": 191
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            184,
-            185
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "ExampleMaskImage"
-      },
-      "widgets_values": [
-        0
-      ],
-      "color": "#0000FF",
-      "bgcolor": "#000099"
-    },
-    {
-      "id": 20,
+      "id": 116,
       "type": "PreviewImage",
       "pos": [
-        1729,
-        979
+        2522,
+        727
       ],
       "size": {
         "0": 210,
         "1": 270
       },
       "flags": {},
-      "order": 16,
+      "order": 17,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 169
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "PreviewImage"
-      }
-    },
-    {
-      "id": 121,
-      "type": "CreateRandomImage",
-      "pos": [
-        844.75908396768,
-        1124.9660790959101
-      ],
-      "size": {
-        "0": 315,
-        "1": 82
-      },
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            189
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CreateRandomImage"
-      },
-      "widgets_values": [
-        128,
-        128
-      ]
-    },
-    {
-      "id": 122,
-      "type": "PreviewImage",
-      "pos": [
-        1330,
-        1002
-      ],
-      "size": {
-        "0": 280.5796203613281,
-        "1": 319.560791015625
-      },
-      "flags": {},
-      "order": 4,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 189
+          "link": 193
         }
       ],
       "properties": {
@@ -544,8 +540,8 @@
       "id": 4,
       "type": "LoadImage",
       "pos": [
-        -750,
-        549
+        348,
+        402
       ],
       "size": {
         "0": 315,
@@ -584,79 +580,98 @@
       ]
     },
     {
-      "id": 123,
-      "type": "ThresholdImage",
+      "id": 83,
+      "type": "ExampleMaskImage",
       "pos": [
-        -8,
-        575
+        1231.3350286956786,
+        379.3454330383302
       ],
-      "size": {
-        "0": 315,
-        "1": 78
-      },
+      "size": [
+        210,
+        290
+      ],
       "flags": {},
-      "order": 7,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
           "name": "image",
           "type": "IMAGE",
-          "link": 190
+          "link": 116
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 194
         }
       ],
       "outputs": [
         {
-          "name": "MASK",
-          "type": "MASK",
+          "name": "IMAGE",
+          "type": "IMAGE",
           "links": [
-            192
+            163,
+            165
           ],
           "shape": 3,
           "slot_index": 0
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": [
-            191
-          ],
-          "shape": 3,
-          "slot_index": 1
         }
       ],
       "properties": {
-        "Node name for S&R": "ThresholdImage"
+        "Node name for S&R": "ExampleMaskImage"
       },
       "widgets_values": [
-        0.5
+        0
       ],
-      "color": "#0066cc",
-      "bgcolor": "#ffcc00"
+      "color": "#0000FF",
+      "bgcolor": "#000099"
     },
     {
-      "id": 116,
-      "type": "PreviewImage",
+      "id": 119,
+      "type": "ExampleMaskImage",
       "pos": [
-        1802,
-        565
+        1234.3350286956786,
+        757.3454330383307
       ],
-      "size": {
-        "0": 210,
-        "1": 270
-      },
+      "size": [
+        315,
+        290.00002670288086
+      ],
       "flags": {},
-      "order": 17,
+      "order": 11,
       "mode": 0,
       "inputs": [
         {
-          "name": "images",
+          "name": "image",
           "type": "IMAGE",
-          "link": 193
+          "link": 182
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 191
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            184,
+            185
+          ],
+          "shape": 3,
+          "slot_index": 0
         }
       ],
       "properties": {
-        "Node name for S&R": "PreviewImage"
-      }
+        "Node name for S&R": "ExampleMaskImage"
+      },
+      "widgets_values": [
+        0
+      ],
+      "color": "#0000FF",
+      "bgcolor": "#000099"
     }
   ],
   "links": [
@@ -699,22 +714,6 @@
       106,
       0,
       "STRING"
-    ],
-    [
-      148,
-      49,
-      0,
-      107,
-      0,
-      "IMAGE"
-    ],
-    [
-      149,
-      71,
-      0,
-      108,
-      0,
-      "IMAGE"
     ],
     [
       163,
@@ -773,14 +772,6 @@
       "IMAGE"
     ],
     [
-      189,
-      121,
-      0,
-      122,
-      0,
-      "IMAGE"
-    ],
-    [
       190,
       4,
       0,
@@ -811,16 +802,82 @@
       116,
       0,
       "IMAGE"
+    ],
+    [
+      194,
+      123,
+      0,
+      83,
+      1,
+      "MASK"
+    ],
+    [
+      196,
+      71,
+      0,
+      125,
+      0,
+      "IMAGE"
+    ],
+    [
+      202,
+      142,
+      0,
+      141,
+      0,
+      "FUN_CLASS"
+    ],
+    [
+      203,
+      141,
+      0,
+      139,
+      0,
+      "IMAGE"
     ]
   ],
-  "groups": [],
+  "groups": [
+    {
+      "title": "Adding Preview Text",
+      "bounding": [
+        399,
+        1081,
+        624,
+        313
+      ],
+      "color": "#3f789e",
+      "font_size": 24
+    },
+    {
+      "title": "Colorful Nodes and adding Preview Images",
+      "bounding": [
+        825,
+        305,
+        975,
+        752
+      ],
+      "color": "#3f789e",
+      "font_size": 24
+    },
+    {
+      "title": "Dynamic nodes from Python classes",
+      "bounding": [
+        1440,
+        1118,
+        947,
+        330
+      ],
+      "color": "#3f789e",
+      "font_size": 24
+    }
+  ],
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.2896643797366881,
+      "scale": 0.5131581182307067,
       "offset": {
-        "0": 834.008544921875,
-        "1": 455.0479736328125
+        "0": -96.56909239725991,
+        "1": 263.16679754465133
       }
     }
   },

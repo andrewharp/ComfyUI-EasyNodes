@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ComfyUI-EasyNodes"
-version = "1.0.3"
+version = "1.0.4"
 description = "Makes creating new nodes for ComfyUI a breeze."
 readme = "readme.md"
 authors = [{ name = "Andrew Harp", email = "andrew.harp@gmail.com" }]
@@ -33,7 +33,7 @@ exclude = ["web"]
 
 [tool.poetry]
 name = "comfyui-easynodes"
-version = "1.0.3"
+version = "1.0.4"
 description = "Makes creating new nodes for ComfyUI a breeze."
 authors = ["Andrew Harp <andrew.harp@gmail.com>"]
 license = "MIT"

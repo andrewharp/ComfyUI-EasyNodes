@@ -1,7 +1,7 @@
 # Simply importing your module gives it a chance to add the @ComfyFunc nodes since
 # EasyNodes will automatically export the NODE_CLASS_MAPPINGS and NODE_DISPLAY_NAME_MAPPINGS
 # for you.
-import example.example_nodes  # noqa: F401
+from .example_nodes import *
 
 
 # Alternatively, to export yourself, you can do the following:
