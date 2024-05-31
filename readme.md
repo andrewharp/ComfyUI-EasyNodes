@@ -32,6 +32,7 @@ For more control, you can call easy_nodes.init(...) and change some settings tha
 - LLM-based debugging: optionally have ChatGPT take a crack at fixing your code
 - Set node colors via Python argument (no JavaScript required)
 - Add preview text and images to nodes via show_text and show_image Python functions, no JavaScript required.
+- Automatically create nodes with widgets to set the fields of existing Python objects.
 - Tooltips and deep links to node source code
 - Bug fixes
 
@@ -57,12 +58,19 @@ To use this module in your ComfyUI project, follow these steps:
     ```bash
     pip install ComfyUI-EasyNodes
     ```
-    or
-    ```
+    or, if you want to have an editable version:
+    ```bash
     pip install -e https://github.com/andrewharp/ComfyUI-EasyNodes
     ```
+    Note that this is not a typical ComfyUI nodepack, so does not itself live under custom_nodes.
+    
+    However, after installing you can copy the example node directory into custom_nodes to test them out:
+    ```bash
+    git clone --depth=1 https://github.com/andrewharp/ComfyUI-EasyNodes.git /tmp/easynodes
+    mv /tmp/easynodes/example $COMFYUI_DIR/custom_nodes/easynodes
+    ```
 
-2. **Integrate into Your Project**:
+3. **Integrate into Your Project**:
     - Open your ComfyUI project's `__init__.py` (e.g. `ComfyUI/custom_nodes/my_project/__init__.py`).
     - Make sure you're importing the module where you define your nodes:
 
