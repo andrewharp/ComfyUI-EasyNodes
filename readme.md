@@ -90,7 +90,7 @@ To use this module in your ComfyUI project, follow these steps:
         return torch.rand((1, height, width, 3))
     ```
 
-    If you run into problems with the auto-registration, you can try turning it off give ComfyUI your node mappings the regular way:
+    If you run into problems with the auto-registration, you can try turning it off and give ComfyUI your node mappings the regular way:
     <details>
 
     In `__init__.py`:
@@ -110,6 +110,9 @@ To use this module in your ComfyUI project, follow these steps:
     import easy_nodes
     easy_nodes.initialize_easy_nodes(default_category=my_category, auto_register=False)
 
+    @ComfyNode()
+    def my_node(foo: int) -> int:
+        return foo + 42
     ...
     ```
 
