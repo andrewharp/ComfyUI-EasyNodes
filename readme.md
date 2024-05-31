@@ -34,6 +34,7 @@ For more control, you can call easy_nodes.init(...) and change some settings tha
 ## New in 1.0.0:
 
 - Renamed to ComfyUI-EasyNodes (from ComfyUI-Annotations) to better reflect the package's goal (rather than the means)
+- Now on pip
 - Automatic module reloading: if you edit your node source, immediately see the changes
 - LLM-based debugging: optionally have ChatGPT take a crack at fixing your code
 - Set node colors via Python argument (no JavaScript required)
@@ -130,7 +131,6 @@ To use this module in your ComfyUI project, follow these steps:
 The options passed to `easy_nodes.initialize_easy_nodes` will apply to all nodes registered until the next time `easy_nodes.initialize_easy_nodes` is called.
 
 The settings mostly control defaults and some optional features that I find nice to have, but which may not work for everybody, so some are turned off by default.
-
     - `default_category`: The default category for nodes. Defaults to "EasyNodes".
     - `auto_register`: Whether to automatically register nodes with ComfyUI (so you don't have to export). Defaults to True.
     - `docstring_mode`: The mode for generating node descriptions that show up in tooltips. Defaults to AutoDescriptionMode.FULL.
