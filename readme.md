@@ -85,7 +85,7 @@ To use this module in your ComfyUI project, follow these steps:
     ```
 
     Then, in `your_node_module.py`:
-    ```
+    ```python
     from easy_nodes import ComfyNode, NumberInput, ImageTensor, initialize_easy_nodes
 
     easy_nodes.initialize_easy_nodes(default_category=my_category)
