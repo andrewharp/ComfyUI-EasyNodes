@@ -140,8 +140,6 @@ app.registerExtension({
 
         const numShowVals = message.text.length;
 
-        // console.log(this.id, "onExecuted", numShowVals, message.text.length, this.origWidgetCount);
-
         resizeShowValueWidgets(this, numShowVals, app);
 
         for (let i = 0; i < numShowVals; i++) {
@@ -169,7 +167,6 @@ app.registerExtension({
       const onMouseDown = nodeType.prototype.onMouseDown;
       nodeType.prototype.onMouseDown = function (e, localPos, graphMouse) {
         onMouseDown?.apply(this, arguments);
-        // console.log("onMouseDown", this.link, localPos);
         if (this.link && !this.flags.collapsed && isInsideRectangle(localPos[0], localPos[1], this.size[0] - this.linkWidth,
           -LiteGraph.NODE_TITLE_HEIGHT, this.linkWidth, LiteGraph.NODE_TITLE_HEIGHT)) {
           window.open(this.link, "_blank");
@@ -353,15 +350,15 @@ const formatExecutionError = function(error) {
 
 var otherShow = null;
 const customShow = function(html) {
-  // Check if it's an exception.
+  // If this is not an exception let it through as normal.
   if (!html.includes("Error occurred when executing")) {
     return otherShow.apply(this, arguments);
   }
 
-  // We know it's an exception now, make sure that only 
-  // processed errors get displayed.
+  // Since we know it's an exception now, only let it through
+  // if the source is our event listener below, which will have
+  // added the special tag to the error while reformatting.
   if (html.includes('class="custom-error"')) {
-    console.log("Special index found!");
     return otherShow.apply(this, arguments);
   }
 };
@@ -387,4 +384,3 @@ api.addEventListener("execution_error", function(e) {
   app.ui.dialog.show(formattedError);
   app.canvas.draw(true, true);
 });
-console.log("Overwrote it!");
