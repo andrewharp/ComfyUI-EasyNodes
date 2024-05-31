@@ -198,7 +198,7 @@ Making the class extend a torch.Tensor is not necessary, but it will give you ni
 
 ### Creating dynamic nodes from classes
 
-You can also automatically create nodes that will set all the fields in a class. Say you have a complex options class from a third-party library you want to pass to a node.
+You can also automatically create nodes that will expose the fields of a class as widgets (as long as it has a default constructor). Say you have a complex options class from a third-party library you want to pass to a node.
 
 ```python
 from some_library import ComplexOptions
@@ -208,7 +208,7 @@ easy_nodes.register_type(ComplexOptions)
 easy_nodes.create_field_setter_node(ComplexOptions)
 ```
 
-Now you should be should find a node named ComplexOptionsClass that will have all the basic field types (str, int, float) exposed as widgets.
+Now you should be should find a node named ComplexOptions that will have all the basic field types (str, int, float, bool) exposed as widgets.
 
 ### Example Node Definition from ComfyUI's [example_node.py.example](https://github.com/comfyanonymous/ComfyUI/blob/master/custom_nodes/example_node.py.example), converted:
 
