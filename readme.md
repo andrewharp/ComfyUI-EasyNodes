@@ -29,7 +29,7 @@ New settings:
 
 Note that ImageTensor/MaskTensor are just syntactic sugar for semantically differentiating the annotations (allowing ComfyUI to know what plugs into what); your function will still get passed genunine torch.Tensor objects.
 
-For more control, you can call easy_nodes.initialize_easy_nodes(...) before creating nodes and and turn on some advanced settings that will apply to all nodes you create.
+For more control, you can call [easy_nodes.initialize_easy_nodes(...)](https://github.com/andrewharp/ComfyUI-EasyNodes?tab=readme-ov-file#initialization-options) before creating nodes and and turn on some advanced settings that will apply to all nodes you create.
 
 ## New in 1.0.0:
 
@@ -211,29 +211,23 @@ easy_nodes.create_field_setter_node(ComplexOptions)
 
 Now you should be should find a node named ComplexOptions that will have all the basic field types (str, int, float, bool) exposed as widgets.
 
-### Example Node Definition from ComfyUI's [example_node.py.example](https://github.com/comfyanonymous/ComfyUI/blob/master/custom_nodes/example_node.py.example), converted:
+## Automatic LLM Debugging
 
-```python
-from easy_nodes import ComfyNode, ImageTensor, MaskTensor, NumberInput, Choice, StringInput
+To enable the experimental LLM-based debugging, set your OPENAI_API_KEY prior to starting ComfyUI.
 
-@ComfyNode("Example")
-def annotated_example(image: ImageTensor, 
-                      string_field: str = StringInput("Hello World!", multiline=False),
-                      int_field: int = NumberInput(0, 0, 4096, 64, "number"), 
-                      float_field: float = NumberInput(1.0, 0, 10.0, 0.01, 0.001),
-                      print_to_screen: str = Choice(["enabled", "disabled"])) -> ImageTensor:
-    """Inverts the input image and prints input parameters based on `print_to_screen` choice."""
-    if print_to_screen == "enable":
-        print(f"""Your input contains:
-            string_field: {string_field}
-            int_field: {int_field}
-            float_field: {float_field}
-        """)
-    return 1.0 - image
+e.g.:
+```bash
+export OPENAI_API_KEY=sk-P#$@%J345jsd...
+python main.py
 ```
 
-More examples can be found in [example_nodes.py](https://github.com/andrewharp/ComfyUI-Annotations/blob/main/example/example_nodes.py)
+Then open settings and turn the LLM debugging option to either "On" or "Auto".
 
+When set to "On", any exception in execution by a EasyNodes node (not regular nodes) will cause EasyNodes to collect all the relevent data and package it into a prompt for ChatGPT, which is instructed to return a fixed function from which a patch is created. That patch is displayed in the console and saved to disk.
+
+When set to "AutoFix", EasyNodes will also apply the patch and attempt to run the prompt again, up to the configurable retry limit.
+
+This feature is very experimental, and any contributions for things like improving the prompt flow and suporting other LLMs are welcome! You can find the implementation in [easy_nodes/llm_debugging.py](easy_nodes/llm_debugging.py).
 
 ## Contributing
 
