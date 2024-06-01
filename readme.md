@@ -84,7 +84,7 @@ To use this module in your ComfyUI project, follow these steps:
     import your_node_module
     ```
 
-    Now simply annotated functions with @ComfyNode and EasyNodes will insert them into ComfyUI's node mappings automatically.
+    Now simply annotate functions with @ComfyNode and EasyNodes will insert them into ComfyUI's node mappings automatically.
 
     However if you run into problems with the auto-registration, you can try turning it off and give ComfyUI your node mappings the regular way:
     <details>
