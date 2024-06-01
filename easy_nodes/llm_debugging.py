@@ -19,9 +19,6 @@ def create_openai_client() -> OpenAI:
     openai_key = os.environ.get("OPENAI_API_KEY")
     
     if not openai_key:
-        openai_key = config_service.get_config_value("easy_nodes.openai_api_token", None)
-    
-    if not openai_key:
         raise ValueError("OpenAI API key not found in either settings or OPENAI_API_KEY environment variable. "
                          + "Please set the API key to use LLM debugging.")
     return OpenAI(api_key=openai_key)

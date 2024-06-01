@@ -29,12 +29,5 @@ app.registerExtension({
       "text",
       "gpt-4o"
     );
-
-    createSetting(
-      "easy_nodes.openai_api_token",
-      "🧠 OpenAI Token (warning: this will be stored in plain text, so don't use on a shared system. In this case set the OPEN_AI_API_KEY environment variable instead)",
-      "text",
-      ""
-    );
   },
 });
