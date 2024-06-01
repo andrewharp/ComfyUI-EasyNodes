@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-import dataclasses
 from importlib import import_module
 import functools
 import hashlib
