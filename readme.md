@@ -1,6 +1,6 @@
 # Effortless Nodes for ComfyUI
 
-This package aims to make adding new [ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes as easy as possible, and provide a some customization options through pure Python that were previously only accessible through JavaScript.
+This package aims to make adding new [ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes as easy as possible, and to provide functionality through pure Python that was previously only accessible with custom JavaScript.
 
 It processes your function's Python signature to create the node definition ComfyUI is expecting. All you have to do is annotate your inputs and outputs and add the `@ComfyNode` decorator.
 
@@ -146,8 +146,9 @@ The settings mostly control defaults and some optional features that I find nice
                debug=True,
                color="#FF00FF")
     def enhance_image(image: ImageTensor, factor: NumberInput(0.5, 0, 1, 0.1)) -> ImageTensor:
-        # Function implementation, do stuff to image.
-        return image
+        output_image = enhance_my_image(image, factor)
+        easy_nodes.show_image(output_image)  # Will show the image on the node, so you don't need a separate PreviewImage node.
+        return output_image
     ```
 
 2. **Annotate your function inputs and outputs**: Fully annotate function parameters and return types, using `list` to wrap types as appropriate. `tuple[output1, output2]` should be used if you have multiple outputs, otherwise you can just return the naked type (in the example below, that would be `list[input]`). This information is used to generate the fields of the internal class definition `@ComfyNode` sends to ComfyUI. If you don't annotate the inputs, the input will be treated as a wildcard. If you don't annotate the output, you won't see anything at all in ComfyUI.
