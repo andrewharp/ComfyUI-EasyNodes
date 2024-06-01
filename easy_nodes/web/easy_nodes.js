@@ -275,6 +275,7 @@ LGraphCanvas.prototype.drawNodeTooltip = function(ctx, text, pos) {
     ctx.restore();
 };
 
+
 const origdrawFrontCanvas = LGraphCanvas.prototype.drawFrontCanvas;
 LGraphCanvas.prototype.drawFrontCanvas = function() {
   origdrawFrontCanvas.apply(this, arguments);
@@ -375,7 +376,8 @@ api.addEventListener("execution_error", function(e) {
   }
 
   // Replace the default dialog.show with our custom one if we haven't already.
-  // We can't do it earlier because somebody else might have grabbed it.
+  // We can't do it earlier because other extensions might run later and replace 
+  // it out from under us in that case.
   if (!otherShow) {
     otherShow = app.ui.dialog.show;
     app.ui.dialog.show = customShow;

@@ -6,8 +6,7 @@ It processes your function's Python signature to create the node definition Comf
 
 For example:
 ```python
-from easy_nodes import ComfyNode, ImageTensor, MaskTensor, initialize_easy_nodes
-easy_nodes.initialize_easy_nodes()
+from easy_nodes import ComfyNode, ImageTensor, MaskTensor
 
 @ComfyNode("Example category", color="#0066cc", bg_color="#ffcc00", return_names=["Below", "Above"])
 def threshold_image(image: ImageTensor, threshold_value: float = NumberInput(0.5, 0, 1, 0.0001, display="slider")) -> tuple[MaskTensor, MaskTensor]:
@@ -29,7 +28,7 @@ New settings:
 
 Note that ImageTensor/MaskTensor are just syntactic sugar for semantically differentiating the annotations (allowing ComfyUI to know what plugs into what); your function will still get passed genunine torch.Tensor objects.
 
-For more control, you can call easy_nodes.init(...) and change some settings that will apply to all nodes you create.
+For more control, you can call easy_nodes.initialize_easy_nodes(...) before creating nodes and and turn on some advanced settings that will apply to all nodes you create.
 
 ## New in 1.0.0:
 

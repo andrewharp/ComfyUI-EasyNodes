@@ -47,19 +47,18 @@ class AutoDescriptionMode(Enum):
 
 @dataclass
 class EasyNodesConfig:
-    default_category = None
-    auto_register = None
-    docstring_mode = None
-    verify_tensors = None
-    auto_move_tensors = None
-    NODE_CLASS_MAPPINGS = {}
-    NODE_DISPLAY_NAME_MAPPINGS = {}
-    num_registered = 0
+    default_category: str
+    auto_register: bool
+    docstring_mode: AutoDescriptionMode
+    verify_tensors: bool
+    auto_move_tensors: bool
+    NODE_CLASS_MAPPINGS: dict
+    NODE_DISPLAY_NAME_MAPPINGS: dict
+    num_registered: int = 0
 
 
 # Keep track of the config from the last init, because different custom_nodes modules 
 # could possibly want different settings.
-_easy_nodes_config = EasyNodesConfig()
 _current_config = None
 
 
@@ -80,27 +79,26 @@ def initialize_easy_nodes(default_category: str = "EasyNodes",
         verify_tensors (bool, optional): Whether to verify tensors for shape and data type according to ComfyUI type (MASK, IMAGE, etc). Runs on inputs and outputs. Defaults to False.
         auto_move_tensors (bool, optional): Whether to automatically move torch Tensors to the GPU before your function gets called, and then to the CPU on output. Defaults to False.
     """
+    # If the user has already requested a prompt, that means auto-reload could conceivably re-import this module.
+    # In that case, we should just return and not re-initialize.
+    if _has_prompt_been_requested:
+        return
+    
     global _current_config
     if _current_config and _current_config.num_registered == 0:
         logging.warning("Re-initializing EasyNodes, but no Nodes have been registered since last initialization. This may indicate an issue.")
 
     logging.info(f"Initializing EasyNodes. Auto-registration: {auto_register}")
-        
-    _current_config = dataclasses.replace(_easy_nodes_config)
-    _current_config.default_category = default_category
-    _current_config.auto_register = auto_register
-    _current_config.docstring_mode = docstring_mode
-    _current_config.verify_tensors = verify_tensors
-    _current_config.auto_move_tensors = auto_move_tensors
-
     if auto_register:
-        _current_config.NODE_CLASS_MAPPINGS = comfyui_nodes.NODE_CLASS_MAPPINGS
-        _current_config.NODE_DISPLAY_NAME_MAPPINGS = comfyui_nodes.NODE_DISPLAY_NAME_MAPPINGS
+        NODE_CLASS_MAPPINGS = comfyui_nodes.NODE_CLASS_MAPPINGS
+        NODE_DISPLAY_NAME_MAPPINGS = comfyui_nodes.NODE_DISPLAY_NAME_MAPPINGS
         frame = sys._getframe(1).f_globals['__name__']
         _ensure_package_dicts_exist(frame)
     else:
-        _current_config.NODE_CLASS_MAPPINGS = {}
-        _current_config.NODE_DISPLAY_NAME_MAPPINGS = {}
+        NODE_CLASS_MAPPINGS = {}
+        NODE_DISPLAY_NAME_MAPPINGS = {}
+    _current_config = EasyNodesConfig(default_category, auto_register, docstring_mode, verify_tensors, auto_move_tensors, 
+                                      NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS)
 
 
 def get_node_mappings():
@@ -112,7 +110,6 @@ def get_node_mappings():
 
 def _get_curr_config():
     if _current_config is None:
-        logging.warning("EasyNodes not initialized. Call easy_nodes.init() before using ComfyFunc.")
         easy_nodes.initialize_easy_nodes()
     return _current_config
 
@@ -340,9 +337,6 @@ def show_text(text: str):
 
 
 def _verify_tensor(arg, tensor_name="", tensor_type="", allowed_shapes=None, allowed_dims=None, allowed_channels=None) -> bool:
-    if not EasyNodesConfig.verify_tensors:
-        return True
-    
     if isinstance(arg, torch.Tensor):
         if tensor_type == "MASK":
             assert arg.min() >= 0 and arg.max() <= 1, f"{tensor_name}: {tensor_type} tensor must have values between 0 and 1, got min {arg.min()} and max {arg.max()}"
@@ -373,9 +367,6 @@ def _verify_return_type(ret, return_type, tensor_name):
 
 
 def _all_to(device, arg):
-    if not EasyNodesConfig.auto_move_tensors:
-        return arg
-    
     if isinstance(arg, torch.Tensor):
         return arg.to(device)
     elif isinstance(arg, list):
@@ -490,7 +481,9 @@ def _get_latest_version_of_func(func: callable, debug: bool = False):
     return _function_dict[func.__qualname__]
 
 
-def _call_function_and_verify_result(func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name, return_names=None):
+def _call_function_and_verify_result(config: EasyNodesConfig, func: callable, 
+                                     args, kwargs, debug, input_desc, adjusted_return_types, 
+                                     wrapped_name, return_names=None):
     try_count = 0
     llm_debugging_enabled = config_service.get_config_value("easy_nodes.llm_debugging", "Off") != "Off"
     max_tries = int(config_service.get_config_value("easy_nodes.max_tries", 1)) if llm_debugging_enabled else 1
@@ -528,15 +521,17 @@ def _call_function_and_verify_result(func, args, kwargs, debug, input_desc, adju
                 if ret is None:
                     logging.warning(f"Result {i} is None")
 
-            new_result = _all_to("cpu", list(result))
+            new_result = _all_to("cpu", list(result)) if config.auto_move_tensors else list(result)
             for i, ret in enumerate(result):
                 if debug:
                     logging.info(f"Result {i} is {type(ret)}")
-                try:
-                    name = f"'{return_names[i]}'" if return_names else f"return_{i}"
-                    _verify_return_type(ret, adjusted_return_types[i], name)
-                except Exception as e:
-                    raise ValueError(f"Error verifying OUTPUT tensor {str(e)}\n{code_origin_loc}") from None
+                    
+                if config.verify_tensors:
+                    try:
+                        return_name = f"'{return_names[i]}'" if return_names else f"return_{i}"
+                        _verify_return_type(ret, adjusted_return_types[i], return_name)
+                    except Exception as e:
+                        raise ValueError(f"Error verifying OUTPUT tensor {str(e)}\n{code_origin_loc}") from None
 
             result = tuple(new_result)
             
@@ -768,7 +763,7 @@ def ComfyNode(
                     kwargs.pop(key)
                     continue
                 
-                arg = _all_to(_get_device(), arg)
+                arg = _all_to(_get_device(), arg) if curr_config.auto_move_tensors else arg
                 if (key in required_inputs and required_inputs[key][0] == "MASK"):
                     if isinstance(arg, torch.Tensor):
                         if len(arg.shape) == 2:
@@ -792,12 +787,13 @@ def ComfyNode(
                 else:
                     input_desc.append(f"{key} ({desc_name}): {arg}")
 
-                try:
-                    _verify_tensor_type(
-                        key, arg, required_inputs, optional_inputs, tensor_name=f"'{key}'"
-                    )
-                except Exception as e:
-                    raise ValueError(f"Error verifying INPUT tensor {str(e)}\n{code_origin_loc}") from None
+                if curr_config.verify_tensors:
+                    try:
+                        _verify_tensor_type(
+                            key, arg, required_inputs, optional_inputs, tensor_name=f"'{key}'"
+                        )
+                    except Exception as e:
+                        raise ValueError(f"Error verifying INPUT tensor {str(e)}\n{code_origin_loc}") from None
                 
                 kwargs[key] = arg
 
@@ -817,7 +813,7 @@ def ComfyNode(
             
             latest_func = _get_latest_version_of_func(func, debug)
             
-            result = _call_function_and_verify_result(latest_func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name,
+            result = _call_function_and_verify_result(curr_config, latest_func, args, kwargs, debug, input_desc, adjusted_return_types, wrapped_name,
                                                       return_names=return_names)
 
             return result
@@ -831,9 +827,9 @@ def ComfyNode(
         the_description = description
         if the_description is None:
             the_description = ""
-            if EasyNodesConfig.docstring_mode is not AutoDescriptionMode.NONE and func.__doc__:
+            if curr_config.docstring_mode is not AutoDescriptionMode.NONE and func.__doc__:
                 the_description = func.__doc__.strip()
-                if EasyNodesConfig.docstring_mode == AutoDescriptionMode.BRIEF:
+                if curr_config.docstring_mode == AutoDescriptionMode.BRIEF:
                     the_description = the_description.split("\n")[0]
 
         _create_comfy_node(
