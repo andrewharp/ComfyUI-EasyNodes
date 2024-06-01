@@ -104,25 +104,16 @@ To use this module in your ComfyUI project, follow these steps:
 
     ```python
     import easy_nodes
-    import your_node_module
+    easy_nodes.initialize_easy_nodes(default_category=my_category, auto_register=False)
+
+    # This must come after calling initialize_easy_nodes.
+    import your_node_module  # noqa: E402
 
     NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS = easy_nodes.get_node_mappings()
 
     # Export so that ComfyUI can pick them up.
     __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
     ```
-
-    and in `your_node_module.py`:
-    ```python
-    import easy_nodes
-    easy_nodes.initialize_easy_nodes(default_category=my_category, auto_register=False)
-
-    @ComfyNode()
-    def my_node(foo: int) -> int:
-        return foo + 42
-    ...
-    ```
-
     </details>
 
 
