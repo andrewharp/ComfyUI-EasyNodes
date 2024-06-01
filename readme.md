@@ -10,9 +10,10 @@ from easy_nodes import ComfyNode, ImageTensor, MaskTensor, initialize_easy_nodes
 easy_nodes.initialize_easy_nodes()
 
 @ComfyNode("Example category", color="#0066cc", bg_color="#ffcc00", return_names=["Below", "Above"])
-def threshold_image(image: ImageTensor, threshold_value: float = NumberInput(0.5, 0, 1, 0.0001, display="slider")) -> tuple[MaskTensor, MaskTensor]:
+def threshold_image(image: ImageTensor,
+                    threshold: float = NumberInput(0.5, 0, 1, 0.01, display="slider")) -> tuple[MaskTensor, MaskTensor]:
     """Returns separate masks for values above and below the threshold value."""
-    mask_below = torch.any(image < threshold_value, dim=-1)
+    mask_below = torch.any(image < threshold, dim=-1)
     return mask_below.float(), (~mask_below).float()
 ```
 
