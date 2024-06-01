@@ -41,6 +41,7 @@ For more control, you can call [easy_nodes.initialize_easy_nodes(...)](https://g
 - Add preview text and images to nodes via show_text and show_image Python functions, no JavaScript required.
 - Automatically create nodes with widgets to set the fields of existing Python objects.
 - Tooltips from your docstrings and deep links to your node's source code for every EasyNode.
+- Make images persist across browser refreshes via a settings option (provided they're still on the server)
 - Bug fixes
 
 ## Features
