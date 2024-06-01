@@ -78,26 +78,14 @@ To use this module in your ComfyUI project, follow these steps:
     ```
 
 3. **Integrate into Your Project**:
-    - Open your ComfyUI project's `__init__.py` (e.g. `ComfyUI/custom_nodes/my_project/__init__.py`).
-    - Make sure you're importing the module where you define your nodes:
-
+    Open `ComfyUI/custom_nodes/<your_project>/__init__.py`, and make sure you're importing the module where you define your nodes:
     ```python
     import your_node_module
     ```
 
-    Then, in `your_node_module.py`:
-    ```python
-    from easy_nodes import ComfyNode, NumberInput, ImageTensor, initialize_easy_nodes
+    Now simply annotated functions with @ComfyNode and EasyNodes will insert them into ComfyUI's node mappings automatically.
 
-    easy_nodes.initialize_easy_nodes(default_category=my_category)
-
-    @ComfyNode()
-    def create_random_image(width: int=NumberInput(128, 128, 1024), 
-                            height: int=NumberInput(128, 128, 1024)) -> ImageTensor:
-        return torch.rand((1, height, width, 3))
-    ```
-
-    If you run into problems with the auto-registration, you can try turning it off and give ComfyUI your node mappings the regular way:
+    However if you run into problems with the auto-registration, you can try turning it off and give ComfyUI your node mappings the regular way:
     <details>
 
     In `__init__.py`:
@@ -214,7 +202,7 @@ python main.py
 
 Then open settings and turn the LLM debugging option to either "On" or "Auto".
 
-When set to "On", any exception in execution by a EasyNodes node (not regular nodes) will cause EasyNodes to collect all the relevent data and package it into a prompt for ChatGPT, which is instructed to return a fixed function from which a patch is created. That patch is displayed in the console and saved to disk.
+When set to "On", any exception in execution by an EasyNodes node (not regular nodes) will cause EasyNodes to collect all the relevent data and package it into a prompt for ChatGPT, which is instructed to reply with a fixed version of your function function from which a patch is created. That patch is displayed in the console and also saved to disk for evaluation.
 
 When set to "AutoFix", EasyNodes will also apply the patch and attempt to run the prompt again, up to the configurable retry limit.
 
