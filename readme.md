@@ -200,11 +200,11 @@ export OPENAI_API_KEY=sk-P#$@%J345jsd...
 python main.py
 ```
 
-Then open settings and turn the LLM debugging option to either "On" or "Auto".
+Then open settings and turn the LLM debugging option to either "On" or "AutoFix".
 
-When set to "On", any exception in execution by an EasyNodes node (not regular nodes) will cause EasyNodes to collect all the relevent data and package it into a prompt for ChatGPT, which is instructed to reply with a fixed version of your function function from which a patch is created. That patch is displayed in the console and also saved to disk for evaluation.
-
-When set to "AutoFix", EasyNodes will also apply the patch and attempt to run the prompt again, up to the configurable retry limit.
+Behavior:
+  * "On": any exception in execution by an EasyNodes node (not regular nodes) will cause EasyNodes to collect all the relevent data and package it into a prompt for ChatGPT, which is instructed to reply with a fixed version of your function function from which a patch is created. That patch is displayed in the console and also saved to disk for evaluation.
+  * "AutoFix": All of the above, and EasyNodes will also apply the patch and attempt to run the prompt again. This will repeat up to the configurable retry limit.
 
 This feature is very experimental, and any contributions for things like improving the prompt flow and suporting other LLMs are welcome! You can find the implementation in [easy_nodes/llm_debugging.py](easy_nodes/llm_debugging.py).
 
