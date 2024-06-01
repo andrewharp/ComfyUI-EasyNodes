@@ -31,16 +31,16 @@ Note that ImageTensor/MaskTensor are just syntactic sugar for semantically diffe
 
 For more control, you can call [easy_nodes.initialize_easy_nodes(...)](https://github.com/andrewharp/ComfyUI-EasyNodes?tab=readme-ov-file#initialization-options) before creating nodes and and turn on some advanced settings that will apply to all nodes you create.
 
-## New in 1.0.0:
+## New in 1.0:
 
-- Renamed to ComfyUI-EasyNodes (from ComfyUI-Annotations) to better reflect the package's goal (rather than the means)
-- Now on pip
+- Renamed to ComfyUI-EasyNodes from ComfyUI-Annotations to better reflect the package's goal (rather than the means)
+- Now on pip/PyPI! ```pip install ComfyUI-EasyNodes```
 - Automatic module reloading: if you edit your node source, immediately see the changes
 - LLM-based debugging: optionally have ChatGPT take a crack at fixing your code
 - Set node colors via Python argument (no JavaScript required)
 - Add preview text and images to nodes via show_text and show_image Python functions, no JavaScript required.
 - Automatically create nodes with widgets to set the fields of existing Python objects.
-- Tooltips and deep links to node source code
+- Tooltips from your docstrings and deep links to your node's source code for every EasyNode.
 - Bug fixes
 
 ## Features
