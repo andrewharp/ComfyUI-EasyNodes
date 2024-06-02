@@ -34,14 +34,19 @@ For more control, you can call [easy_nodes.initialize_easy_nodes(...)](https://g
 ## New in 1.0:
 
 - Renamed to ComfyUI-EasyNodes from ComfyUI-Annotations to better reflect the package's goal (rather than the means)
+  - Package is now `easy_nodes` rather than `comfy_annotations`
 - Now on pip/PyPI! ```pip install ComfyUI-EasyNodes```
-- Automatic module reloading: if you edit your node source, immediately see the changes
-- LLM-based debugging: optionally have ChatGPT take a crack at fixing your code
-- Set node colors via Python argument (no JavaScript required)
-- Add preview text and images to nodes via show_text and show_image Python functions, no JavaScript required.
-- Automatically create nodes with widgets to set the fields of existing Python objects.
-- Tooltips from your docstrings and deep links to your node's source code for every EasyNode.
-- Make images persist across browser refreshes via a settings option (provided they're still on the server)
+- Set node foregroun and background color via Python argument, no JS required: `@ComfyNode(color="FF0000", bg_color="00FF00")`
+- Add previews to nodes without JavaScript. Just drop either of these in the body of your node's function:
+  - `easy_nodes.show_text("hello world")`
+  - `easy_nodes.show_image(image)`
+- Automatically create nodes from existing Python classes. The dynamic node will automatically add a widget for every field.
+- Info tooltip on nodes auto-generated from your function's docstring
+- New optional settings features:
+  - Make images persist across browser refreshes via a settings option (provided they're still on the server)
+  - Automatic module reloading: if you turn on the setting, immediately see the changes to code on the next run.
+  - LLM-based debugging: optionally have ChatGPT take a crack at fixing your code
+  - Deep links to source code if you set a base source path (e.g. to github or your IDE)
 - Bug fixes
 
 ## Features
