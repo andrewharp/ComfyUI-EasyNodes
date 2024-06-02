@@ -1,5 +1,4 @@
-from dataclasses import dataclass
-from importlib import import_module
+
 import functools
 import hashlib
 import importlib
@@ -12,11 +11,11 @@ import os
 import sys
 import traceback
 import typing
+from dataclasses import dataclass
 from enum import Enum
+from importlib import import_module
 from pathlib import Path
-from typing import Callable, Union, get_args, get_origin
-
-import easy_nodes
+from typing import Callable, Dict, Union, get_args, get_origin
 
 import nodes as comfyui_nodes
 import numpy as np
@@ -24,9 +23,9 @@ import torch
 from colorama import Fore
 from PIL import Image
 
+import easy_nodes
 import easy_nodes.config_service as config_service
 import easy_nodes.llm_debugging as llm_debugging
-
 
 # Export the web directory so ComfyUI can pick up the JavaScript.
 _web_path = os.path.join(os.path.dirname(__file__), "web")
@@ -42,6 +41,12 @@ class AutoDescriptionMode(Enum):
     NONE = "none"
     BRIEF = "brief"
     FULL = "full"
+    
+
+class CheckSeverityMode(Enum):
+    OFF = "off"
+    WARN = "warn"
+    FATAL = "fatal"
 
 
 @dataclass
@@ -49,7 +54,7 @@ class EasyNodesConfig:
     default_category: str
     auto_register: bool
     docstring_mode: AutoDescriptionMode
-    verify_tensors: bool
+    verify_level: CheckSeverityMode
     auto_move_tensors: bool
     NODE_CLASS_MAPPINGS: dict
     NODE_DISPLAY_NAME_MAPPINGS: dict
@@ -58,13 +63,13 @@ class EasyNodesConfig:
 
 # Keep track of the config from the last init, because different custom_nodes modules 
 # could possibly want different settings.
-_current_config = None
+_current_config: EasyNodesConfig = None
 
 
 def initialize_easy_nodes(default_category: str = "EasyNodes", 
          auto_register: bool = True, 
          docstring_mode: AutoDescriptionMode = AutoDescriptionMode.FULL, 
-         verify_tensors: bool = False,
+         verify_level: CheckSeverityMode = CheckSeverityMode.WARN,
          auto_move_tensors: bool = False):
     """
     Initializes the EasyNodes library with the specified configuration options.
@@ -75,17 +80,19 @@ def initialize_easy_nodes(default_category: str = "EasyNodes",
         default_category (str, optional): The default category for nodes. Defaults to "EasyNodes".
         auto_register (bool, optional): Whether to automatically register nodes with ComfyUI (so you don't have to export). Defaults to True. Experimental.
         docstring_mode (AutoDescriptionMode, optional): The mode for generating node docstrings. Defaults to AutoDescriptionMode.FULL.
-        verify_tensors (bool, optional): Whether to verify tensors for shape and data type according to ComfyUI type (MASK, IMAGE, etc). Runs on inputs and outputs. Defaults to False.
+        verify_level (bool, optional): Whether to verify tensors for shape and data type according to ComfyUI type (MASK, IMAGE, etc). Runs on inputs and outputs. Defaults to False.
         auto_move_tensors (bool, optional): Whether to automatically move torch Tensors to the GPU before your function gets called, and then to the CPU on output. Defaults to False.
     """
     # If the user has already requested a prompt, that means auto-reload could conceivably re-import this module.
     # In that case, we should just return and not re-initialize.
-    if _has_prompt_been_requested:
+    if _after_first_prompt:
         return
     
     global _current_config
-    if _current_config and _current_config.num_registered == 0:
-        logging.warning("Re-initializing EasyNodes, but no Nodes have been registered since last initialization. This may indicate an issue.")
+    if _current_config:
+        assert _current_config.num_registered > 0, "Re-initializing EasyNodes, but no Nodes have been registered since last initialization. This may indicate an issue."        
+        assert _current_config.auto_register or not _current_config.NODE_CLASS_MAPPINGS, (
+            f"Auto-registration was turned off by previous initializer, but {len(_current_config.NODE_CLASS_MAPPINGS)} nodes were not picked up.")
 
     logging.info(f"Initializing EasyNodes. Auto-registration: {auto_register}")
     if auto_register:
@@ -96,7 +103,7 @@ def initialize_easy_nodes(default_category: str = "EasyNodes",
     else:
         NODE_CLASS_MAPPINGS = {}
         NODE_DISPLAY_NAME_MAPPINGS = {}
-    _current_config = EasyNodesConfig(default_category, auto_register, docstring_mode, verify_tensors, auto_move_tensors, 
+    _current_config = EasyNodesConfig(default_category, auto_register, docstring_mode, verify_level, auto_move_tensors, 
                                       NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS)
 
 
@@ -187,78 +194,12 @@ class NumberInput(float):
         return f"{super().__repr__()} (Min: {self.min}, Max: {self.max})"
 
 
-# Used for type hinting semantics only.
-class ImageTensor(torch.Tensor):
-    def __new__(cls):
-        raise TypeError("Do not instantiate this class directly.")
-
-
-# Used for type hinting semantics only.
-class MaskTensor(torch.Tensor):
-    def __new__(cls):
-        raise TypeError("Do not instantiate this class directly.")
-
-
-# Made to match any and all other types.
-class AnyType(str):
-    def __ne__(self, __value: object) -> bool:
-        return False
-
-
-any_type = AnyType("*")
-
-
-def _get_fully_qualified_name(cls):
-    return f"{cls.__module__}.{cls.__qualname__}"
-
-
 _ANNOTATION_TO_COMFYUI_TYPE = {}
 _SHOULD_AUTOCONVERT = {"str": True}
 _DEFAULT_FORCE_INPUT = {}
+_COMFYUI_TYPE_TO_ANNOTATION_CLS = {}
 
-
-def register_type(
-    cls: type, 
-    name: str = None, 
-    should_autoconvert: bool = False, 
-    is_auto_register: bool = False, 
-    force_input: bool = False
-):
-    """Register a type for ComfyUI.
-
-    Args:
-        cls (type): The type to register.
-        name (str): The name of the type.
-        should_autoconvert (bool, optional): Whether the type should be automatically converted to the expected type before being passed to the wrapped function. Defaults to False.
-        is_auto_register (bool, optional): Whether the type is automatically registered. Defaults to False.
-        force_input (bool, optional): Whether the type should be forced as an input. Defaults to False.
-    """
-    if name is None:
-        name = cls.__name__
-    
-    key = _get_fully_qualified_name(cls)
-    # if not is_auto_register:
-    #     assert key not in _ANNOTATION_TO_COMFYUI_TYPE, f"Type {cls} already registered."
-
-    if key in _ANNOTATION_TO_COMFYUI_TYPE:
-        return
-
-    _ANNOTATION_TO_COMFYUI_TYPE[key] = name
-    _SHOULD_AUTOCONVERT[key] = should_autoconvert
-    _DEFAULT_FORCE_INPUT[key] = force_input
-
-
-register_type(torch.Tensor, "TENSOR")
-register_type(ImageTensor, "IMAGE")
-register_type(MaskTensor, "MASK")
-register_type(int, "INT")
-register_type(float, "FLOAT")
-register_type(str, "STRING")
-register_type(bool, "BOOLEAN")
-register_type(AnyType, any_type)
-
-
-_has_prompt_been_requested = False
+_after_first_prompt = False
 _module_reload_times = {}
 _module_dict = {}
 
@@ -269,12 +210,131 @@ _function_update_times = {}
 _curr_preview = {}
 _curr_unique_id = None
 
-_tensor_types = {
-    "IMAGE": {"allowed_shapes": [4], "allowed_dims": None, "allowed_channels": [1, 3, 4]},
-    "MASK": {"allowed_shapes": [3], "allowed_dims": None, "allowed_channels": None},
-    "DEPTH": {"allowed_shapes": [4], "allowed_dims": None, "allowed_channels": [1]},
-    "OPTICAL_FLOW": {"allowed_shapes": [4], "allowed_dims": None, "allowed_channels": [2]}
-}
+
+class CustomVerifier:
+    def __init__(self):
+        raise NotImplementedError()
+    
+    def __call__(self, arg):
+        raise NotImplementedError()
+
+
+# This is the default validator that just ensures that one of them is directly descended
+# from the other. This allows the semantic classes and the actual classes to be used interchangeably.
+class SubclassVerifier(CustomVerifier):
+    def __init__(self, cls: type):
+        self.cls = cls
+    
+    def __call__(self, arg):
+        assert issubclass(self.cls, type(arg)) or issubclass(type(arg), self.cls), (
+            f"Expected one of {self.cls.__name__} and {type(arg).__name__} to be a direct descendant of the other.")
+
+
+class TypeVerifier(CustomVerifier):
+    def __init__(self, allowed_types: list):
+        self.allowed_types = allowed_types
+
+    def __call__(self, value):
+        for allowed_type in self.allowed_types:
+            if isinstance(value, allowed_type):
+                return
+        raise ValueError(f"Expected one of {self.allowed_types}, got {type(value)}")
+
+
+class AnythingVerifier(CustomVerifier):
+    def __init__(self):
+        pass
+    def __call__(self, value):
+        pass
+
+
+@dataclass
+class TensorVerifier(CustomVerifier):
+    tensor_type_name: str
+    allowed_shapes: list = None
+    allowed_dims: list = None
+    allowed_channels: list = None
+    allowed_range: list = None
+    
+    def __call__(self, tensor):
+        assert isinstance(tensor, torch.Tensor), f"Expected an {self.tensor_type_name}, got {type(tensor).__name__}"
+        
+        if self.allowed_range is not None:
+            assert tensor.min() >= self.allowed_range[0] and tensor.max() <= self.allowed_range[1], f"{self.tensor_type_name} tensor must have values between {self.allowed_range[0]} and {self.allowed_range[1]}, got min {tensor.min()} and max {tensor.max()}"
+        
+        if self.allowed_shapes is not None:
+            assert len(tensor.shape) in self.allowed_shapes, f"{self.tensor_type_name} tensor must have shape in {self.allowed_shapes}, got {tensor.shape}"
+            
+        if self.allowed_dims is not None:
+            for i, dim in enumerate(self.allowed_dims):
+                assert tensor.shape[i] <= dim, f"{self.tensor_type_name} tensor dimension {i} must be less than or equal to {dim}, got {tensor.shape[i]}"
+                
+        if self.allowed_channels is not None:
+            assert tensor.shape[-1] in self.allowed_channels, f"{self.tensor_type_name} tensor must have the number of channels in {self.allowed_channels}, got {tensor.shape[-1]}"
+
+
+
+_custom_verifiers: Dict[str, CustomVerifier] = {}
+
+
+def _get_fully_qualified_name(cls: type) -> str:
+    return f"{cls.__module__}.{cls.__qualname__}"
+
+
+def register_type(
+    cls: type, 
+    name: str = None, 
+    should_autoconvert: bool = False, 
+    is_auto_register: bool = False, 
+    force_input: bool = False,
+    verifier: CustomVerifier = None
+):
+    """Register a type for ComfyUI.
+
+    Args:
+        cls (type): The type to register.
+        name (str): The name of the type.
+        should_autoconvert (bool, optional): Whether the type should be automatically converted to the expected type before being passed to the wrapped function. Defaults to False.
+        is_auto_register (bool, optional): Whether the type is automatically registered. Defaults to False.
+        force_input (bool, optional): Whether the type should be forced as an input. Defaults to False.
+    """
+    if _after_first_prompt:
+        return
+    
+    if name is None:
+        name = cls.__name__
+    
+    key = _get_fully_qualified_name(cls)
+    if not is_auto_register:
+        assert key not in _ANNOTATION_TO_COMFYUI_TYPE, f"Type {cls} already registered."
+        # assert name not in _COMFYUI_TYPE_TO_ANNOTATION, f"Type {name} already registered."
+
+    if key in _ANNOTATION_TO_COMFYUI_TYPE:
+        return
+    
+    # Assume the first type registered is the most general, and ignore later ones.
+    # This means you can register multiple types of string-like object as STRING for
+    # semantic purposes, but return values will just be checked if they're isinstance(v, str)
+    if name not in _COMFYUI_TYPE_TO_ANNOTATION_CLS:
+        _COMFYUI_TYPE_TO_ANNOTATION_CLS[name] = cls
+        if verifier:
+            _custom_verifiers[name] = verifier
+        else:
+            _custom_verifiers[name] = SubclassVerifier(cls)
+    elif verifier:
+        logging.warning(f"Custom verifier for {name} already registered. Ignoring new one.")
+
+    _ANNOTATION_TO_COMFYUI_TYPE[key] = name
+    _SHOULD_AUTOCONVERT[key] = should_autoconvert
+    _DEFAULT_FORCE_INPUT[key] = force_input
+
+
+# Made to match any and all other types.
+class AnyType(str):
+    def __ne__(self, __value: object) -> bool:
+        return False
+
+any_type = AnyType("*")
 
 
 def _get_type_str(the_type: type) -> str:
@@ -286,16 +346,21 @@ def _get_type_str(the_type: type) -> str:
         logging.warning(
             f"Type '{the_type}' not registered with ComfyUI, treating as wildcard"
         )
+        raise ValueError(f"Type '{the_type}' not registered with ComfyUI")
 
     type_str = _ANNOTATION_TO_COMFYUI_TYPE.get(key, any_type)
     return type_str
 
 
-def _get_device():
-    return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+_gpu_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+_cpu_device = torch.device("cpu")
 
 
-def show_image(image: torch.Tensor, type: str = "output"):
+def show_image(image: torch.Tensor, type: str = None):
+    if type is None:
+        retain_previews = config_service.get_config_value("easy_nodes.RetainPreviews", False)
+        type = "output" if retain_previews else "temp"
+    
     images = image
     for image in images:
         if len(image.shape) == 2:
@@ -313,6 +378,8 @@ def show_image(image: torch.Tensor, type: str = "output"):
         unique = hashlib.md5(image.tobytes()).hexdigest()[:8]
 
         filename = f"preview-{_curr_unique_id}_{unique}.png"
+        
+        # TODO: make configurable.
         subfolder = "ComfyUI-EasyNodes"
         full_output_path = Path(folder_paths.get_directory_by_type(type)) / subfolder / filename
 
@@ -335,50 +402,56 @@ def show_text(text: str):
     _curr_preview["text"].append(text)
 
 
-def _verify_tensor(arg, tensor_name="", tensor_type="", allowed_shapes=None, allowed_dims=None, allowed_channels=None) -> bool:
-    if isinstance(arg, torch.Tensor):
-        if tensor_type == "MASK":
-            assert arg.min() >= 0 and arg.max() <= 1, f"{tensor_name}: {tensor_type} tensor must have values between 0 and 1, got min {arg.min()} and max {arg.max()}"
+def _verify_values(config: EasyNodesConfig,
+                   list_type: str, 
+                   values: list[any], 
+                   types: list[str], 
+                   names: list[str], 
+                   code_origin_loc: str, 
+                   debug: bool=False):
+    for i, val in enumerate(values):
+        param_type = types[i]
+        if val is None:
+            continue
+
+        if debug:
+            logging.info(f"Result {i} is {type(val)}, expected {types[i]}")
+        def recursive_verify(verifier: callable, val: any):
+            if isinstance(val, list):
+                for v in val:
+                    recursive_verify(verifier, v)
+            else:
+                verifier(val)
+
+        # def verify(verifier: callable, val: any, return_name: str, severity: CheckSeverityMode):
+    
         
-        if allowed_shapes is not None:
-            assert len(arg.shape) in allowed_shapes, f"{tensor_name}: {tensor_type} tensor must have shape in {allowed_shapes}, got {arg.shape}"
-        if allowed_dims is not None:
-            for i, dim in enumerate(allowed_dims):
-                assert arg.shape[i] <= dim, f"{tensor_name}: {tensor_type} tensor dimension {i} must be less than or equal to {dim}, got {arg.shape[i]}"
-        if allowed_channels is not None:
-            assert arg.shape[-1] in allowed_channels, f"{tensor_name}: {tensor_type} tensor must have the number of channels in {allowed_channels}, got {arg.shape[-1]}"
-    elif isinstance(arg, list):
-        for a in arg:
-            return _verify_tensor(a, tensor_name=tensor_name, allowed_shapes=allowed_shapes, allowed_dims=allowed_dims, allowed_channels=allowed_channels)
+        param_name = f"'{names[i]}'" if names else f"{list_type}_{i}"
+
+        if param_type in _custom_verifiers:
+            if config.verify_level in [CheckSeverityMode.WARN, CheckSeverityMode.FATAL]:
+                try:
+                    recursive_verify(_custom_verifiers[param_type], val)
+                except Exception as e:
+                    logging.error(_custom_verifiers)
+                    logging.error(val)
+                    error_str = f"Error verifying {list_type} tensor {param_name}: {str(e)}\n{code_origin_loc}"
+                    logging.warning(error_str)
+                    if config.verify_level == CheckSeverityMode.FATAL:
+                        raise ValueError(error_str) from None                        
+        else:
+            logging.warning(f"No verifier for {param_type}. Skipping verification.")
 
 
-def _verify_tensor_type(key, arg, required_inputs, optional_inputs, tensor_name):
-    for tensor_type, params in _tensor_types.items():
-        if (key in required_inputs and required_inputs[key][0] == tensor_type) or (key in optional_inputs and optional_inputs[key][0] == tensor_type):
-            return _verify_tensor(arg, tensor_name=tensor_name, tensor_type=tensor_type, **params)
-    return True
+def _move_all_tensors_to_device(device: torch.device, tensor_or_tensors: Union[any, list]):
+    if isinstance(tensor_or_tensors, torch.Tensor):
+        return tensor_or_tensors.to(device)
+    elif isinstance(tensor_or_tensors, list):
+        return [_move_all_tensors_to_device(device, a) for a in tensor_or_tensors]
+    return tensor_or_tensors
 
 
-def _verify_return_type(ret, return_type, tensor_name):
-    if return_type in _tensor_types:
-        return _verify_tensor(ret, tensor_name=tensor_name, tensor_type=return_type, **_tensor_types[return_type])
-    return True
-
-
-def _all_to(device, arg):
-    if isinstance(arg, torch.Tensor):
-        return arg.to(device)
-    elif isinstance(arg, list):
-        return [_all_to(device, a) for a in arg]
-    return arg
-
-
-class ReturnInfo(Exception):
-    def init(self, line_number):
-        self.line_number = line_number
-
-
-def _image_info(image: Union[torch.Tensor, np.ndarray], label: str=None) -> str:
+def _image_info(image: Union[torch.Tensor, np.ndarray]) -> str:
     if isinstance(image, torch.Tensor):
         if image.dtype in [torch.long, torch.int, torch.int32, torch.int64, torch.bool]:
             image = image.float()
@@ -444,10 +517,10 @@ def _get_latest_version_of_module(module_name: str, debug: bool = False):
     if current_modified_time > module_reload_time:
         time_diff = current_modified_time - module_reload_time
         logging.info(f"{Fore.LIGHTMAGENTA_EX}Reloading module {module_name} because file was edited. ({time_diff:.1f}s between versions){Fore.RESET}")
-        # Set _already_initialized so that any calls to ComfyFunc will get 
+        # Set _has_prompt_been_requested so that any calls to ComfyFunc will get 
         # ignored rather than tripping the already-registered assert.
-        global _has_prompt_been_requested
-        _has_prompt_been_requested = True
+        global _after_first_prompt
+        _after_first_prompt = True
         importlib.reload(module)
         _module_reload_times[module_name] = current_modified_time
     elif debug:
@@ -485,7 +558,7 @@ def _call_function_and_verify_result(config: EasyNodesConfig, func: callable,
                                      wrapped_name, return_names=None):
     try_count = 0
     llm_debugging_enabled = config_service.get_config_value("easy_nodes.llm_debugging", "Off") != "Off"
-    max_tries = int(config_service.get_config_value("easy_nodes.max_tries", 1)) if llm_debugging_enabled else 1
+    max_tries = int(config_service.get_config_value("easy_nodes.max_tries", 1)) if llm_debugging_enabled == "AutoFix" else 1
     
     logging.debug(f"Running {func.__qualname__} with {max_tries} tries. {llm_debugging_enabled}")
 
@@ -520,18 +593,12 @@ def _call_function_and_verify_result(config: EasyNodesConfig, func: callable,
                 if ret is None:
                     logging.warning(f"Result {i} is None")
 
-            new_result = _all_to("cpu", list(result)) if config.auto_move_tensors else list(result)
-            for i, ret in enumerate(result):
-                if debug:
-                    logging.info(f"Result {i} is {type(ret)}")
-                    
-                if config.verify_tensors:
-                    try:
-                        return_name = f"'{return_names[i]}'" if return_names else f"return_{i}"
-                        _verify_return_type(ret, adjusted_return_types[i], return_name)
-                    except Exception as e:
-                        raise ValueError(f"Error verifying OUTPUT tensor {str(e)}\n{code_origin_loc}") from None
+            new_result = _move_all_tensors_to_device(_cpu_device, list(result)) if config.auto_move_tensors else list(result)
+            _verify_values(config, "OUTPUT", result, adjusted_return_types, return_names, code_origin_loc, debug=debug)
 
+            for i, ret in enumerate(new_result):
+                new_result[i] = maybe_autoconvert(adjusted_return_types[i], ret)
+            
             result = tuple(new_result)
             
             # If preview items were added, wrap the result.
@@ -540,8 +607,7 @@ def _call_function_and_verify_result(config: EasyNodesConfig, func: callable,
             return result
 
         except Exception as e:
-            logging.error(func)
-            logging.error(e)
+            logging.error(f"Error while processing: {func}: {e}")
             if try_count == max_tries:
                 # Calculate the number of interesting stack levels.
                 _, _, tb = sys.exc_info()
@@ -595,6 +661,15 @@ def _ensure_package_dicts_exist(module_name: str):
         raise e
 
 
+def maybe_autoconvert(comfyui_type_name: str, arg: any):
+    if _SHOULD_AUTOCONVERT.get(comfyui_type_name, False):
+        comfyui_type = _COMFYUI_TYPE_TO_ANNOTATION_CLS[comfyui_type_name]
+        if isinstance(arg, list):
+            arg = [comfyui_type(el) for el in arg]
+        else:
+            arg = comfyui_type(arg)
+    return arg
+
 
 def ComfyNode(
     category: str = None,
@@ -618,12 +693,16 @@ def ComfyNode(
         category (str): The category of the node.
         display_name (str): The display name of the node. If not provided, it will be generated from the function name.
         workflow_name (str): The workflow name of the node. If not provided, it will be generated from the function name.
+        description (str): The description of the node. If not set, it will be generated from the function docstring.
         is_output_node (bool): Indicates whether the node is an output node and should be run regardless of if anything depends on it.
         return_types (list): A list of types to return. If not provided, it will be inferred from the function's annotations.
         return_names (list[str]): The names of the outputs. Must match the number of return types.
         validate_inputs (Callable): A function used to validate the inputs of the node.
         is_changed (Callable): A function used to determine if the node's inputs have changed.
+        always_run (bool): Indicates whether the node should always run, regardless of whether its inputs have changed.
         debug (bool): Indicates whether to enable debug logging for this node.
+        color (str): The color of the node.
+        bg_color (str): The background color of the node.
 
     Returns:
         A callable used that can be used with a function to create a ComfyUI node.
@@ -632,10 +711,9 @@ def ComfyNode(
     
     if not category:
         category = curr_config.default_category
-        
-    
+
     def decorator(func: callable):        
-        if _has_prompt_been_requested:
+        if _after_first_prompt:
             # Sorry, we're closed for business.
             return func
 
@@ -749,6 +827,7 @@ def ComfyNode(
 
             input_desc = []
             keys = list(kwargs.keys())
+            
             for key in keys:
                 arg = kwargs[key]
                 # Remove extra_pnginfo and unique_id from the kwargs if they weren't requested by the user.
@@ -762,7 +841,9 @@ def ComfyNode(
                     kwargs.pop(key)
                     continue
                 
-                arg = _all_to(_get_device(), arg) if curr_config.auto_move_tensors else arg
+                arg = _move_all_tensors_to_device(_gpu_device, arg) if curr_config.auto_move_tensors else arg
+                
+                # TODO: Remove this special handling for mask once I remember what needed it.
                 if (key in required_inputs and required_inputs[key][0] == "MASK"):
                     if isinstance(arg, torch.Tensor):
                         if len(arg.shape) == 2:
@@ -772,29 +853,28 @@ def ComfyNode(
                             if len(a.shape) == 2:
                                 arg[i] = a.unsqueeze(0)
 
+                # TODO: Move this into _call_function_and_verify_result 
                 if key in all_inputs:
-                    cls = input_type_map[key]
-                    if _SHOULD_AUTOCONVERT.get(_get_fully_qualified_name(cls), False):
-                        if isinstance(arg, list):
-                            arg = [cls(el) for el in arg]
-                        else:
-                            arg = cls(arg)
+                    arg = maybe_autoconvert(all_inputs[key][0], arg)
                 
                 desc_name = _get_fully_qualified_name(type(arg))
                 if isinstance(arg, torch.Tensor):
                     input_desc.append(f"{key} ({desc_name}): {_image_info(arg)}")
                 else:
                     input_desc.append(f"{key} ({desc_name}): {arg}")
-
-                if curr_config.verify_tensors:
-                    try:
-                        _verify_tensor_type(
-                            key, arg, required_inputs, optional_inputs, tensor_name=f"'{key}'"
-                        )
-                    except Exception as e:
-                        raise ValueError(f"Error verifying INPUT tensor {str(e)}\n{code_origin_loc}") from None
                 
                 kwargs[key] = arg
+            
+            # TODO: Move this into _call_function_and_verify_result
+            input_names = [key for key in list(kwargs.keys()) if key not in hidden_inputs]
+            input_values = [kwargs[key] for key in input_names]
+            input_types = [all_inputs[key][0] for key in input_names]
+            _verify_values(curr_config,
+                         "INPUT", 
+                         input_values,
+                         input_types, 
+                         input_names, 
+                         code_origin_loc, debug=debug)
 
             # For some reason self still gets passed with class methods.
             if is_cls_mth:
@@ -1075,7 +1155,7 @@ def _create_comfy_node(
     class_map = easy_nodes_config.NODE_CLASS_MAPPINGS
     display_map = easy_nodes_config.NODE_DISPLAY_NAME_MAPPINGS
 
-    if not _has_prompt_been_requested:
+    if not _after_first_prompt:
         all_workflow_names = set(class_map.keys()) | set(comfyui_nodes.NODE_CLASS_MAPPINGS.keys())
         all_display_names = set(display_map.values()) | set(comfyui_nodes.NODE_DISPLAY_NAME_MAPPINGS.values())
         all_node_classes = set(class_map.values()) | set(comfyui_nodes.NODE_CLASS_MAPPINGS.values())

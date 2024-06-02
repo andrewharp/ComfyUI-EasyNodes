@@ -1,16 +1,29 @@
+from easy_nodes.comfy_types import (  # noqa: F401
+    ConditioningTensor,
+    ImageTensor,
+    LatentTensor,
+    MaskTensor,
+    ModelTensor,
+    NumberType,
+    PhotoMaker,
+    SigmasTensor,
+)
 from easy_nodes.easy_nodes import (  # noqa: F401
     AnyType,
+    AutoDescriptionMode,
+    CheckSeverityMode,
     Choice,
     ComfyNode,
-    ImageTensor,
-    MaskTensor,
+    CustomVerifier,
     NumberInput,
     StringInput,
-    show_image,
-    show_text,
+    TensorVerifier,
+    TypeVerifier,
     create_field_setter_node,
     initialize_easy_nodes,
     register_type,
+    show_image,
+    show_text,
 )
 
 # For backwards compatibility with the original comfy_annotations module.
