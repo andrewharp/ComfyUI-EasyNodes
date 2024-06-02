@@ -19,7 +19,7 @@ def create_openai_client() -> OpenAI:
     openai_key = os.environ.get("OPENAI_API_KEY")
     
     if not openai_key:
-        raise ValueError("OpenAI API key not found in either settings or OPENAI_API_KEY environment variable. "
+        raise ValueError("OpenAI API key not found in OPENAI_API_KEY environment variable. "
                          + "Please set the API key to use LLM debugging.")
     return OpenAI(api_key=openai_key)
 
