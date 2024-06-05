@@ -36,7 +36,7 @@ For more control, you can call [easy_nodes.initialize_easy_nodes(...)](https://g
 - Renamed to ComfyUI-EasyNodes from ComfyUI-Annotations to better reflect the package's goal (rather than the means)
   - Package is now `easy_nodes` rather than `comfy_annotations`
 - Now on pip/PyPI! ```pip install ComfyUI-EasyNodes```
-- Set node foregroun and background color via Python argument, no JS required: `@ComfyNode(color="FF0000", bg_color="00FF00")`
+- Set node foreground and background color via Python argument, no JS required: `@ComfyNode(color="FF0000", bg_color="00FF00")`
 - Add previews to nodes without JavaScript. Just drop either of these in the body of your node's function:
   - `easy_nodes.show_text("hello world")`
   - `easy_nodes.show_image(image)`
