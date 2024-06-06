@@ -73,7 +73,8 @@ To use this module in your ComfyUI project, follow these steps:
     ```
     or, if you want to have an editable version:
     ```bash
-    pip install -e https://github.com/andrewharp/ComfyUI-EasyNodes
+    git clone https://github.com/andrewharp/ComfyUI-EasyNodes
+    pip install -e ComfyUI-EasyNodes
     ```
     Note that this is not a typical ComfyUI nodepack, so does not itself live under custom_nodes.
     
