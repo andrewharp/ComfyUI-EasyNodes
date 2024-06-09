@@ -21,4 +21,5 @@ jobs:
     - name: Install pytorch3d
       run: |
         pip install torch==2.2.0
-        pip install git+https://github.com/facebookresearch/pytorch3d.git@f34104cf6ebefacd7b7e07955ee7aaa823e616ac
+        pip install git+https://github.com/facebookresearch/pytorch3d.git@stable
+        
