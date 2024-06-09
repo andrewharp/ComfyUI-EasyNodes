@@ -12,8 +12,6 @@ jobs:
 
     defaults:
       run:
-        # Required when using an activated conda environment in steps
-        # See https://github.com/conda-incubator/setup-miniconda#IMPORTANT
         shell: bash -l {0}
 
     steps:
@@ -32,6 +30,10 @@ jobs:
         conda install pytorch=2.2.0 torchvision pytorch-cuda=12.1 -c pytorch -c nvidia -y
         conda install -c fvcore -c iopath -c conda-forge fvcore iopath
         pip list
+
+    - name: Install Pytorch3d
+      run: |
+        conda install pytorch3d -c pytorch3d
         
     - name: Check versions
       run: |
