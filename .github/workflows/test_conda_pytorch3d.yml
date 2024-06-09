@@ -22,6 +22,7 @@ jobs:
     - name: run miniconda
       run: |
         conda env list
+        conda activate myenv
         which python
         
     - name: Install pytorch3d
