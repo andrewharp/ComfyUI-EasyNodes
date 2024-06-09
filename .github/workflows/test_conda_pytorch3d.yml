@@ -1,0 +1,24 @@
+name: Test Pytorch3d
+
+on:
+  push:
+    branches: [ dev ]
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.10'
+
+    - name: Install pytorch3d
+      run: |
+        conda install pytorch3d -c pytorch3d
+        
