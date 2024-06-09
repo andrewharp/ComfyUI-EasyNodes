@@ -22,11 +22,16 @@ jobs:
     - name: run miniconda
       run: |
         conda env list
+        which python
         
     - name: Install pytorch3d
       run: |
         conda install pytorch=2.2.0 torchvision pytorch-cuda=12.1 -c pytorch -c nvidia -y
         conda install -c fvcore -c iopath -c conda-forge fvcore iopath
+
+    - name: check pip
+      run: |
+        pip list
 
     - name: Check versions
       run: |
