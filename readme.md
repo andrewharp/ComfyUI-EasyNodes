@@ -157,7 +157,7 @@ The settings mostly control defaults and some optional features that I find nice
         return output_image
     ```
 
-2. **Annotate your function inputs and outputs**: Fully annotate function parameters and return types, using `list` to wrap types as appropriate. `tuple[output1, output2]` should be used if you have multiple outputs, otherwise you can just return the naked type (in the example below, that would be `list[input]`). This information is used to generate the fields of the internal class definition `@ComfyNode` sends to ComfyUI. If you don't annotate the inputs, the input will be treated as a wildcard. If you don't annotate the output, you won't see anything at all in ComfyUI.
+2. **Annotate your function inputs and outputs**: Fully annotate function parameters and return types, using `list` to wrap types as appropriate. `tuple[output1, output2]` should be used if you have multiple outputs, otherwise you can just return the naked type (in the example below, that would be `list[int]`). This information is used to generate the fields of the internal class definition `@ComfyNode` sends to ComfyUI. If you don't annotate the inputs, the input will be treated as a wildcard. If you don't annotate the output, you won't see anything at all in ComfyUI.
 
     Example:
     ```python
