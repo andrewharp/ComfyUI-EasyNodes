@@ -27,12 +27,8 @@ jobs:
 
     - name: Install dependencies
       run: |
-        conda install pytorch=2.1.2 torchvision pytorch-cuda=12.1 -c pytorch -y
-        conda install -c fvcore -c iopath -c conda-forge fvcore iopath
-
-    - name: Install Pytorch3d
-      run: |
-        conda install pytorch3d -c pytorch3d
+        pip install torch==2.2.0
+        pip install git+https://github.com/facebookresearch/pytorch3d.git@stable
         
     - name: Check versions
       run: |
