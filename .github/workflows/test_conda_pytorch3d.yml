@@ -21,14 +21,18 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2
       with:
         auto-update-conda: true
-        python-version: '3.10'
+        python-version: '3.11'
         activate-environment: myenv
         auto-activate-base: false
 
     - name: Install dependencies
       run: |
-        pip install torch==2.2.0
-        pip install git+https://github.com/facebookresearch/pytorch3d.git@stable
+        conda install pytorch=2.1.2 torchvision cpuonly  -c pytorch -y
+        conda install -c fvcore -c iopath -c conda-forge fvcore iopath
+
+    - name: Install Pytorch3d
+      run: |
+        conda install pytorch3d -c pytorch3d
         
     - name: Check versions
       run: |
