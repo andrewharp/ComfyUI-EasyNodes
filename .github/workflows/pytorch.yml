@@ -2,6 +2,7 @@ name: Test Pytorch3d
 
 on:
   push:
+    branches: [ dev ]
     tags:
       - 'v*'
 
