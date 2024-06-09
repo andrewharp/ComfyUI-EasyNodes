@@ -21,7 +21,7 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2
       with:
         auto-update-conda: true
-        python-version: '3.10'
+        python-version: '3.11'
         activate-environment: myenv
         auto-activate-base: false
 
