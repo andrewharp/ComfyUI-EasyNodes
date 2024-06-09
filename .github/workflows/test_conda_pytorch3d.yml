@@ -18,6 +18,10 @@ jobs:
       with:
         python-version: '3.10'
         activate-environment: myenv
+
+    - name: run miniconda
+      run: |
+        conda env list
         
     - name: Install pytorch3d
       run: |
