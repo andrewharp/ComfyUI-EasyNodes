@@ -20,6 +20,6 @@ jobs:
 
     - name: Install pytorch3d
       run: |
-        conda install pytorch=2.2.0 torchvision pytorch-cuda=12.1 -c pytorch -c nvidia
+        conda install pytorch=2.2.0 torchvision pytorch-cuda=12.1 -c pytorch -c nvidia -y
         conda install -c fvcore -c iopath -c conda-forge fvcore iopath
         
