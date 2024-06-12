@@ -24,8 +24,7 @@ jobs:
 
     - name: Install pytorch3d
       run: |
-        pip install torch==2.1.2
-        pip install git+https://github.com/facebookresearch/pytorch3d.git@v0.7.6
+        pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu113_pyt1110/download.html
 
     - name: Check versions
       run: |
