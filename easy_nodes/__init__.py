@@ -24,6 +24,7 @@ from easy_nodes.easy_nodes import (  # noqa: F401
     register_type,
     show_image,
     show_text,
+    get_node_mappings
 )
 
 # For backwards compatibility with the original comfy_annotations module.
