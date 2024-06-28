@@ -1,6 +1,6 @@
 {
-  "last_node_id": 142,
-  "last_link_id": 203,
+  "last_node_id": 143,
+  "last_link_id": 207,
   "nodes": [
     {
       "id": 20,
@@ -31,8 +31,8 @@
       "id": 139,
       "type": "PreviewImage",
       "pos": [
-        2167,
-        1192
+        2212.774551171874,
+        1231.061705859375
       ],
       "size": {
         "0": 210,
@@ -54,51 +54,18 @@
       }
     },
     {
-      "id": 91,
-      "type": "TextRepeater",
-      "pos": [
-        409,
-        1155
-      ],
-      "size": {
-        "0": 298.5838928222656,
-        "1": 82
-      },
-      "flags": {},
-      "order": 0,
-      "mode": 0,
-      "outputs": [
-        {
-          "name": "STRING",
-          "type": "STRING",
-          "links": [
-            147
-          ],
-          "shape": 6,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "TextRepeater"
-      },
-      "widgets_values": [
-        "Sample text",
-        4
-      ]
-    },
-    {
       "id": 106,
       "type": "PreviewExample",
       "pos": [
-        803,
-        1158
+        775.3641983886721,
+        1234.26650078125
       ],
       "size": {
         "0": 210,
         "1": 226
       },
       "flags": {},
-      "order": 3,
+      "order": 6,
       "mode": 0,
       "inputs": [
         {
@@ -128,95 +95,6 @@
         "hello: Sample text",
         "hello: Sample text"
       ]
-    },
-    {
-      "id": 123,
-      "type": "ThresholdImage",
-      "pos": [
-        835.3350286956788,
-        659.3454330383307
-      ],
-      "size": {
-        "0": 315,
-        "1": 78
-      },
-      "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 190
-        }
-      ],
-      "outputs": [
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": [
-            192,
-            194
-          ],
-          "shape": 3,
-          "slot_index": 0
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": [
-            191
-          ],
-          "shape": 3,
-          "slot_index": 1
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "ThresholdImage"
-      },
-      "widgets_values": [
-        0.5
-      ],
-      "color": "#0066cc",
-      "bgcolor": "#ffcc00"
-    },
-    {
-      "id": 49,
-      "type": "ConvertToImage",
-      "pos": [
-        1580.3350286956786,
-        645.3454330383307
-      ],
-      "size": {
-        "0": 210,
-        "1": 26
-      },
-      "flags": {},
-      "order": 9,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "mask",
-          "type": "MASK",
-          "link": 192
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            125
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "ConvertToImage"
-      },
-      "color": "#00FF00",
-      "bgcolor": "#009900"
     },
     {
       "id": 109,
@@ -302,64 +180,18 @@
       }
     },
     {
-      "id": 81,
-      "type": "AddImages",
-      "pos": [
-        2069,
-        513
-      ],
-      "size": {
-        "0": 210,
-        "1": 66
-      },
-      "flags": {},
-      "order": 12,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image1",
-          "type": "IMAGE",
-          "link": 165
-        },
-        {
-          "name": "image2",
-          "type": "IMAGE",
-          "link": 184
-        },
-        {
-          "name": "image3",
-          "type": "IMAGE",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            112
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "AddImages"
-      }
-    },
-    {
       "id": 142,
       "type": "MyFunClass",
       "pos": [
-        1479,
-        1202
+        1524.7745511718751,
+        1241.061705859375
       ],
       "size": {
         "0": 315,
         "1": 106
       },
       "flags": {},
-      "order": 1,
+      "order": 0,
       "mode": 0,
       "outputs": [
         {
@@ -382,44 +214,6 @@
       ]
     },
     {
-      "id": 141,
-      "type": "MyFunClassNodeProcessor",
-      "pos": [
-        1825,
-        1231
-      ],
-      "size": [
-        257.37260361251174,
-        46.323488864500405
-      ],
-      "flags": {},
-      "order": 4,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "fun_class",
-          "type": "FUN_CLASS",
-          "link": 202
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            203
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "MyFunClassNodeProcessor"
-      },
-      "color": "#4F006F",
-      "bgcolor": "#2F0042"
-    },
-    {
       "id": 71,
       "type": "AnnotatedExample",
       "pos": [
@@ -431,7 +225,7 @@
         "1": 130
       },
       "flags": {},
-      "order": 5,
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
@@ -548,7 +342,7 @@
         "1": 314
       },
       "flags": {},
-      "order": 2,
+      "order": 1,
       "mode": 0,
       "outputs": [
         {
@@ -558,7 +352,7 @@
             100,
             116,
             182,
-            190
+            204
           ],
           "shape": 3,
           "slot_index": 0
@@ -580,18 +374,174 @@
       ]
     },
     {
+      "id": 81,
+      "type": "AddImages",
+      "pos": [
+        2021,
+        509
+      ],
+      "size": {
+        "0": 210,
+        "1": 66
+      },
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image1",
+          "type": "IMAGE",
+          "link": 165
+        },
+        {
+          "name": "image2",
+          "type": "IMAGE",
+          "link": 184
+        },
+        {
+          "name": "image3",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            112
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AddImages"
+      }
+    },
+    {
+      "id": 91,
+      "type": "TextRepeater",
+      "pos": [
+        382.364198388672,
+        1230.26650078125
+      ],
+      "size": {
+        "0": 298.5838928222656,
+        "1": 82
+      },
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            147
+          ],
+          "shape": 6,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TextRepeater"
+      },
+      "widgets_values": [
+        "Sample text",
+        4
+      ]
+    },
+    {
+      "id": 141,
+      "type": "MyFunClassNodeProcessor",
+      "pos": [
+        1870.7745511718751,
+        1270.061705859375
+      ],
+      "size": {
+        "0": 257.3725891113281,
+        "1": 46.323490142822266
+      },
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "fun_class",
+          "type": "FUN_CLASS",
+          "link": 202
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            203
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MyFunClassNodeProcessor"
+      },
+      "color": "#4F006F",
+      "bgcolor": "#2F0042"
+    },
+    {
+      "id": 49,
+      "type": "ConvertToImage",
+      "pos": [
+        1581,
+        680
+      ],
+      "size": {
+        "0": 210,
+        "1": 26
+      },
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 207,
+          "slot_index": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            125
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ConvertToImage"
+      },
+      "color": "#00FF00",
+      "bgcolor": "#009900"
+    },
+    {
       "id": 83,
       "type": "ExampleMaskImage",
       "pos": [
-        1231.3350286956786,
-        379.3454330383302
+        1251,
+        339
       ],
       "size": [
-        210,
-        290
+        275.15281611122464,
+        347.3918510824771
       ],
       "flags": {},
-      "order": 10,
+      "order": 9,
       "mode": 0,
       "inputs": [
         {
@@ -602,7 +552,7 @@
         {
           "name": "mask",
           "type": "MASK",
-          "link": 194
+          "link": 205
         }
       ],
       "outputs": [
@@ -630,12 +580,12 @@
       "id": 119,
       "type": "ExampleMaskImage",
       "pos": [
-        1234.3350286956786,
-        757.3454330383307
+        1234,
+        728
       ],
       "size": [
-        315,
-        290.00002670288086
+        303.48784480690324,
+        371.7372841208073
       ],
       "flags": {},
       "order": 11,
@@ -649,7 +599,7 @@
         {
           "name": "mask",
           "type": "MASK",
-          "link": 191
+          "link": 206
         }
       ],
       "outputs": [
@@ -672,6 +622,57 @@
       ],
       "color": "#0000FF",
       "bgcolor": "#000099"
+    },
+    {
+      "id": 143,
+      "type": "ThresholdImage",
+      "pos": [
+        842,
+        591
+      ],
+      "size": {
+        "0": 315,
+        "1": 78
+      },
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 204
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Below",
+          "type": "MASK",
+          "links": [
+            205,
+            207
+          ],
+          "shape": 3,
+          "slot_index": 0
+        },
+        {
+          "name": "Above",
+          "type": "MASK",
+          "links": [
+            206
+          ],
+          "shape": 3,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ThresholdImage"
+      },
+      "widgets_values": [
+        0.5
+      ],
+      "color": "#0066cc",
+      "bgcolor": "#ffcc00"
     }
   ],
   "links": [
@@ -772,44 +773,12 @@
       "IMAGE"
     ],
     [
-      190,
-      4,
-      0,
-      123,
-      0,
-      "IMAGE"
-    ],
-    [
-      191,
-      123,
-      1,
-      119,
-      1,
-      "MASK"
-    ],
-    [
-      192,
-      123,
-      0,
-      49,
-      0,
-      "MASK"
-    ],
-    [
       193,
       84,
       0,
       116,
       0,
       "IMAGE"
-    ],
-    [
-      194,
-      123,
-      0,
-      83,
-      1,
-      "MASK"
     ],
     [
       196,
@@ -834,14 +803,46 @@
       139,
       0,
       "IMAGE"
+    ],
+    [
+      204,
+      4,
+      0,
+      143,
+      0,
+      "IMAGE"
+    ],
+    [
+      205,
+      143,
+      0,
+      83,
+      1,
+      "MASK"
+    ],
+    [
+      206,
+      143,
+      1,
+      119,
+      1,
+      "MASK"
+    ],
+    [
+      207,
+      143,
+      0,
+      49,
+      0,
+      "MASK"
     ]
   ],
   "groups": [
     {
       "title": "Adding Preview Text",
       "bounding": [
-        399,
-        1081,
+        371,
+        1157,
         624,
         313
       ],
@@ -851,10 +852,10 @@
     {
       "title": "Colorful Nodes and adding Preview Images",
       "bounding": [
-        825,
-        305,
+        826,
+        265,
         975,
-        752
+        845
       ],
       "color": "#3f789e",
       "font_size": 24
@@ -862,8 +863,8 @@
     {
       "title": "Dynamic nodes from Python classes",
       "bounding": [
-        1440,
-        1118,
+        1486,
+        1157,
         947,
         330
       ],
@@ -874,10 +875,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.5131581182307067,
+      "scale": 0.6830134553650705,
       "offset": {
-        "0": -96.56909239725991,
-        "1": 263.16679754465133
+        "0": -79.82854480690358,
+        "1": 209.7400158791936
       }
     }
   },
