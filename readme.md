@@ -6,8 +6,8 @@ It processes your function's Python signature to create the node definition Comf
 
 For example:
 ```python
-from easy_nodes import ComfyNode, ImageTensor, MaskTensor, NumberInput
-easy_nodes.initialize_easy_nodes(default_category="Example category", auto_register=False)
+from easy_nodes import ComfyNode, ImageTensor, MaskTensor, NumberInput, initialize_easy_nodes
+initialize_easy_nodes(default_category="Example category", auto_register=False)
 
 @ComfyNode(, color="#0066cc", bg_color="#ffcc00", return_names=["Below", "Above"])
 def threshold_image(image: ImageTensor,
