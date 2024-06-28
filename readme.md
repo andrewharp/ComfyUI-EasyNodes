@@ -91,16 +91,6 @@ To use this module in your ComfyUI project, follow these steps:
     ```
 
 3. **Integrate into Your Project**:
-    Open `ComfyUI/custom_nodes/<your_project>/__init__.py`, and make sure you're importing the module where you define your nodes:
-    ```python
-    import your_node_module
-    ```
-
-    Now simply annotate functions with @ComfyNode and EasyNodes will insert them into ComfyUI's node mappings automatically.
-
-    However if you run into problems with the auto-registration, you can try turning it off and call `easy_nodes.get_node_mappings()` to give ComfyUI your node mappings the regular way:
-    <details>
-
     In `__init__.py`:
 
     ```python
@@ -115,7 +105,8 @@ To use this module in your ComfyUI project, follow these steps:
     # Export so that ComfyUI can pick them up.
     __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
     ```
-    </details>
+
+    You can also initialize with auto_register=True, in which can you won't have to do anything else after the import. However, this may be problematic for having your nodes indexed so will default to False in a future update (currently not setting it explicitly will auto-register and complain).
 
 
 ## Initialization options
