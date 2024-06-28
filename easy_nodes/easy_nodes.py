@@ -106,7 +106,7 @@ def initialize_easy_nodes(default_category: str = "EasyNodes",
     
     auto_register_message = ""
     if auto_register is AutoRegisterSentinel.DEFAULT:
-        auto_register_message = " NOTE: Auto-registration not set explicitly, running in mixed-mode. Will default to False in a future version. If already using get_node_mappings(), you can ignore this message."
+        auto_register_message = " NOTE: Auto-registration not set explicitly, running in mixed-mode. The default will change to False in a future version. If already calling get_node_mappings(), you can ignore this message (or pass auto-register explicitly to make it go away)."
 
     logging.info(f"Initializing EasyNodes. Auto-registration: {auto_register}{auto_register_message}")
 
