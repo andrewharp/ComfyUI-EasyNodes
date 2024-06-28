@@ -16,7 +16,7 @@ def threshold_image(image: ImageTensor,
     return mask_below.float(), (~mask_below).float()
 ```
 
-That's it (plus [a little bit of code](#installation) in `__init__.py`)! Now your node is ready for ComfyUI. More examples can be found [here](example/example_nodes.py).
+That (plus [a tiny bit initialization](#installation) in `__init__.py`) and your node is ready for ComfyUI! More examples can be found [here](example/example_nodes.py).
 
 Sample node with tooltip and deep source link:
 
@@ -26,10 +26,7 @@ New settings:
 
 <img src="assets/menu_options.png" alt="New menu options" width="50%">
 
-
 Note that ImageTensor/MaskTensor are just syntactic sugar for semantically differentiating the annotations (allowing ComfyUI to know what plugs into what); your function will still get passed genunine torch.Tensor objects.
-
-For more control, you can call [easy_nodes.initialize_easy_nodes(...)](https://github.com/andrewharp/ComfyUI-EasyNodes?tab=readme-ov-file#initialization-options) before creating nodes and and turn on some advanced settings that will apply to all nodes you create.
 
 ## New in 1.1:
 
@@ -106,7 +103,7 @@ To use this module in your ComfyUI project, follow these steps:
     __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
     ```
 
-    You can also initialize with auto_register=True, in which can you won't have to do anything else after the import. However, this may be problematic for having your nodes indexed so will default to False in a future update (currently not setting it explicitly will auto-register and complain).
+    You can also initialize with auto_register=True, in which case you won't have to do anything else after the import. However, this may be problematic for having your nodes indexed so will default to False in a future update (currently not setting it explicitly will auto-register and complain).
 
 
 ## Initialization options
