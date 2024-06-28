@@ -7,8 +7,6 @@ It processes your function's Python signature to create the node definition Comf
 For example:
 ```python
 from easy_nodes import ComfyNode, ImageTensor, MaskTensor, NumberInput, initialize_easy_nodes
-initialize_easy_nodes(default_category="Example category", auto_register=False)
-
 
 @ComfyNode(color="#0066cc", bg_color="#ffcc00", return_names=["Below", "Above"])
 def threshold_image(image: ImageTensor,
@@ -16,13 +14,9 @@ def threshold_image(image: ImageTensor,
     """Returns separate masks for values above and below the threshold value."""
     mask_below = torch.any(image < threshold, dim=-1)
     return mask_below.float(), (~mask_below).float()
-
-
-NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS = easy_nodes.get_node_mappings()
-__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
 ```
 
-That's it! Now your node is ready for ComfyUI. More examples can be found [here](example/example_nodes.py).
+That's it (plus [a little bit of code](#integration-into-your-project) in `__init__.py`)! Now your node is ready for ComfyUI. More examples can be found [here](example/example_nodes.py).
 
 Sample node with tooltip and deep source link:
 
