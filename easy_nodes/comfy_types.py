@@ -5,31 +5,19 @@ from comfy.sd import VAE
 from easy_nodes.easy_nodes import AnythingVerifier, TensorVerifier, TypeVerifier, register_type, AnyType, any_type
 
 
-class ImageTensor(torch.Tensor):
-    pass
+class ImageTensor(torch.Tensor): pass
+class MaskTensor(torch.Tensor): pass
 
-class MaskTensor(torch.Tensor):
-    pass
-
-class LatentTensor(torch.Tensor):
-    pass
-
-class ConditioningTensor(torch.Tensor):
-    pass
-
-class ModelTensor(torch.Tensor):
-    pass
-
-class SigmasTensor(torch.Tensor):
-    pass
+class LatentTensor(torch.Tensor): pass
+class ConditioningTensor(torch.Tensor): pass
+class ModelTensor(torch.Tensor): pass
+class SigmasTensor(torch.Tensor): pass
 
 # Maybe there's an actual class for this?
-class PhotoMaker:
-    pass
+class PhotoMaker: pass
 
 # Abstract type, not for instantiating.
-class NumberType:
-    pass
+class NumberType: pass
 
 
 # ComfyUI will get the special string that anytype is registered with, which is hardcoded to match anything.

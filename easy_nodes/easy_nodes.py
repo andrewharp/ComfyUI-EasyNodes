@@ -1,4 +1,5 @@
 
+import enum
 import functools
 import hashlib
 import importlib
@@ -59,6 +60,7 @@ class EasyNodesConfig:
     NODE_CLASS_MAPPINGS: dict
     NODE_DISPLAY_NAME_MAPPINGS: dict
     num_registered: int = 0
+    get_node_mappings_called: bool = False
 
 
 # Keep track of the config from the last init, because different custom_nodes modules 
@@ -66,8 +68,13 @@ class EasyNodesConfig:
 _current_config: EasyNodesConfig = None
 
 
+# Changing the default of auto-register to false in 1.1, so catch if the user hasn't set it explicitly so we can give them a warning.
+class AutoRegisterSentinel(enum.Enum):
+    DEFAULT = enum.auto()
+
+
 def initialize_easy_nodes(default_category: str = "EasyNodes", 
-         auto_register: bool = True, 
+         auto_register: bool = AutoRegisterSentinel.DEFAULT, 
          docstring_mode: AutoDescriptionMode = AutoDescriptionMode.FULL, 
          verify_level: CheckSeverityMode = CheckSeverityMode.WARN,
          auto_move_tensors: bool = False):
@@ -78,7 +85,7 @@ def initialize_easy_nodes(default_category: str = "EasyNodes",
 
     Args:
         default_category (str, optional): The default category for nodes. Defaults to "EasyNodes".
-        auto_register (bool, optional): Whether to automatically register nodes with ComfyUI (so you don't have to export). Defaults to True. Experimental.
+        auto_register (bool, optional): Whether to automatically register nodes with ComfyUI (so you don't have to export). Defaults to False. Experimental.
         docstring_mode (AutoDescriptionMode, optional): The mode for generating node docstrings. Defaults to AutoDescriptionMode.FULL.
         verify_level (bool, optional): Whether to verify tensors for shape and data type according to ComfyUI type (MASK, IMAGE, etc). Runs on inputs and outputs. Defaults to False.
         auto_move_tensors (bool, optional): Whether to automatically move torch Tensors to the GPU before your function gets called, and then to the CPU on output. Defaults to False.
@@ -94,28 +101,37 @@ def initialize_easy_nodes(default_category: str = "EasyNodes",
         assert _current_config.auto_register or not _current_config.NODE_CLASS_MAPPINGS, (
             f"Auto-registration was turned off by previous initializer, but {len(_current_config.NODE_CLASS_MAPPINGS)} nodes were not picked up.")
 
+    NODE_CLASS_MAPPINGS = {}
+    NODE_DISPLAY_NAME_MAPPINGS = {}
+
     logging.info(f"Initializing EasyNodes. Auto-registration: {auto_register}")
-    if auto_register:
+    if auto_register is AutoRegisterSentinel.DEFAULT:
+        logging.warning("Auto-registration not set explicitly. Will default to False in a future version. Call easy_nodes.initialize_easy_nodes(auto_register=True|False) to suppress this warning.")
+    
+    if auto_register is True:
         NODE_CLASS_MAPPINGS = comfyui_nodes.NODE_CLASS_MAPPINGS
         NODE_DISPLAY_NAME_MAPPINGS = comfyui_nodes.NODE_DISPLAY_NAME_MAPPINGS
+    
+    if auto_register is True or auto_register is AutoRegisterSentinel.DEFAULT:
         frame = sys._getframe(1).f_globals['__name__']
         _ensure_package_dicts_exist(frame)
-    else:
-        NODE_CLASS_MAPPINGS = {}
-        NODE_DISPLAY_NAME_MAPPINGS = {}
+
     _current_config = EasyNodesConfig(default_category, auto_register, docstring_mode, verify_level, auto_move_tensors, 
                                       NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS)
 
 
 def get_node_mappings():
-    assert _current_config is not None, "EasyNodes not initialized. Call easy_nodes.init() before using ComfyFunc."
-    assert not _current_config.auto_register, "Auto-node registration is on. Call easy_nodes.init(auto_register=False) if you want to export manually."
-    _current_config.initialized = False
+    assert _current_config is not None, "EasyNodes not initialized. Call easy_nodes.initialize_easy_nodes() before using ComfyNode."
+    assert _current_config.num_registered > 0, "No nodes registered. Use the @ComfyNode() decorator to register nodes after calling easy_nodes.initialize_easy_nodes()."
+    assert _current_config.auto_register is not True, "Auto-node registration is on. Call easy_nodes.initialize_easy_nodes(auto_register=False) if you want to export manually."
+    assert not _current_config.get_node_mappings_called, "get_node_mappings() already called. This function should only be called once."
+    _current_config.get_node_mappings_called = True
     return _current_config.NODE_CLASS_MAPPINGS, _current_config.NODE_DISPLAY_NAME_MAPPINGS
 
 
-def _get_curr_config():
+def _get_curr_config() -> EasyNodesConfig:
     if _current_config is None:
+        logging.warning("easy_nodes.initialize_easy_nodes() should be called prior to any other EasyNodes activity. Initializing now with easy_nodes.initialize_easy_nodes() for backwards compatibility.")
         easy_nodes.initialize_easy_nodes()
     return _current_config
 
@@ -737,7 +753,7 @@ def ComfyNode(
         
         filename = func.__code__.co_filename
         
-        wrapped_name = func.__qualname__ + "_comfyfunc_wrapper"
+        wrapped_name = func.__qualname__ + "_comfynode_wrapper"
         source_location = f"{filename}:{func.__code__.co_firstlineno}"
         code_origin_loc = f"\n Source: {func.__qualname__} {source_location}"
         original_is_changed = is_changed
@@ -823,6 +839,11 @@ def ComfyNode(
         
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
+            if curr_config.auto_register == AutoRegisterSentinel.DEFAULT and curr_config.get_node_mappings_called is False:
+                logging.warning("EasyNodes auto-registration not explicitly enabled, and easy_nodes.get_node_mappings() has not been called. "
+                                + "In the future auto_register will default to False, so please set explicitly via easy_nodes.initialize_easy_nodes(auto_register=True), "
+                                + "or use easy_nodes.get_node_mappings() to export to ComfyUI after all ComfyNodes have been created.")
+            
             if debug:
                 logger.info(
                     f"Calling {func.__name__} with {len(args)} args and {len(kwargs)} kwargs. Is class method: {is_cls_mth}"
@@ -1181,6 +1202,12 @@ def _create_comfy_node(
 
     class_map[workflow_name] = node_class
     display_map[workflow_name] = display_name
+    
+    # Temporary for backwards compatibility.
+    if easy_nodes_config.auto_register is AutoRegisterSentinel.DEFAULT:
+        comfyui_nodes.NODE_CLASS_MAPPINGS[workflow_name] = node_class
+        comfyui_nodes.NODE_DISPLAY_NAME_MAPPINGS[workflow_name] = display_name
+    
     easy_nodes_config.num_registered += 1
 
 

@@ -11,16 +11,11 @@ from easy_nodes import (
 import easy_nodes
 import torch
 
-
-my_category = "EasyNodes Examples"
-
-# By default EasyNodes will auto-register any decorated function (automatically insert it into ComfyUI's node registry).
-# If you want to manually register your nodes the regular way, turn off
-# auto_register and call easy_nodes.get_node_mappings()
-easy_nodes.initialize_easy_nodes(default_category=my_category, auto_register=True)
+# Important! Make sure easy_nodes.initialize_easy_nodes is called before any nodes are defined.
+# See __init__.py for an example of how to do this.
 
 # This is the converted example node from ComfyUI's example_node.py.example file.
-@ComfyNode(my_category)
+@ComfyNode()
 def annotated_example(
     image: ImageTensor,
     string_field: str = StringInput("Hello World!", multiline=False),
@@ -47,7 +42,7 @@ def another_function(foo: float = 1.0):
     print("Hello World!", foo)
 
 
-ComfyNode(my_category, is_changed=lambda: random.random())(another_function)
+ComfyNode(is_changed=lambda: random.random())(another_function)
 
 
 # You can register arbitrary classes to be used as inputs or outputs.
@@ -64,14 +59,14 @@ easy_nodes.register_type(MyFunClass, "FUN_CLASS")
 easy_nodes.create_field_setter_node(MyFunClass)
 
 
-@ComfyNode(my_category, is_output_node=True, color="#4F006F")
+@ComfyNode(is_output_node=True, color="#4F006F")
 def my_fun_class_node_processor(fun_class: MyFunClass) -> ImageTensor:
     print(f"Processing MyFunClass: {fun_class.width} {fun_class.height} {fun_class.color}")
     my_image = torch.rand((1, fun_class.height, fun_class.width, 3)) * fun_class.color
     return my_image
 
 
-@ComfyNode(my_category)
+@ComfyNode()
 def create_random_image(width: int=NumberInput(128, 128, 1024), 
                         height: int=NumberInput(128, 128, 1024)) -> ImageTensor:
     return torch.rand((1, height, width, 3))
@@ -95,14 +90,13 @@ def my_is_changed_func():
     return random()
 
 ComfyNode(
-    my_category,
     is_changed=my_is_changed_func,
     description="Descriptions can also be passed in manually. This operation increments a counter",
 )(ExampleClass.my_method)
 
 
 # Preview text and images right in the nodes.
-@ComfyNode(my_category, is_output_node=True)
+@ComfyNode(is_output_node=True)
 def preview_example(str2: str = StringInput("")) -> str:
     easy_nodes.show_text(f"hello: {str2}")
     return str2
@@ -118,7 +112,7 @@ class AnotherExampleClass:
         cls.class_counter += 1
 
 
-ComfyNode(my_category, is_changed=lambda: random.random())(
+ComfyNode(is_changed=lambda: random.random())(
     AnotherExampleClass.my_class_method
 )
 
@@ -127,12 +121,12 @@ ComfyNode(my_category, is_changed=lambda: random.random())(
 # differentiate between images and masks in ComfyUI. This is purely cosmetic, and they
 # are interchangeable in Python. If you annotate the type of a parameter as torch.Tensor
 # it will be treated as an ImageTensor.
-@ComfyNode(my_category, color="#00FF00")
+@ComfyNode(color="#00FF00")
 def convert_to_image(mask: MaskTensor) -> ImageTensor:
     return mask
 
 
-@ComfyNode(my_category)
+@ComfyNode()
 def text_repeater(text: str=StringInput("Sample text"), 
                   times: int=NumberInput(10, 1, 100)) -> list[str]:
     return [text] * times
@@ -141,7 +135,7 @@ def text_repeater(text: str=StringInput("Sample text"),
 # If you wrap your input types in list[], under the hood the decorator will make sure you get
 # everything in a single call with the list inputs passed to you as lists automatically.
 # If you don't, then you'll get multiple calls with a single item on each call.
-@ComfyNode(my_category)
+@ComfyNode()
 def combine_lists(
     image1: list[ImageTensor], image2: list[ImageTensor]
 ) -> list[ImageTensor]:
@@ -150,7 +144,7 @@ def combine_lists(
 
 
 # Adding a default for a param makes it optional, so ComfyUI won't require it to run your node.
-@ComfyNode(my_category)
+@ComfyNode()
 def add_images(
     image1: ImageTensor, image2: ImageTensor, image3: ImageTensor = None
 ) -> ImageTensor:
@@ -160,7 +154,7 @@ def add_images(
     return combined_tensors
 
 
-@ComfyNode(my_category, is_output_node=True, color="#006600")
+@ComfyNode(is_output_node=True, color="#006600")
 def example_show_mask(mask: MaskTensor) -> MaskTensor:
     easy_nodes.show_image(mask)
     logging.info("Showing mask")
@@ -177,7 +171,7 @@ def threshold_image(image: ImageTensor, threshold_value: float = NumberInput(0.5
 
 
 # ImageTensor and MaskTensor are just torch.Tensors, so you can treat them as such.
-@ComfyNode(my_category, color="#0000FF")
+@ComfyNode(color="#0000FF")
 def example_mask_image(image: ImageTensor, 
                        mask: MaskTensor,
                        value: float=NumberInput(0, 0, 1, 0.0001, display="slider")) -> ImageTensor:
@@ -189,13 +183,13 @@ def example_mask_image(image: ImageTensor,
 
 # As long as Python is happy, ComfyUI will be happy with whatever you tell it the return type is.
 # You can set the node color by passing in a color argument to the decorator.
-@ComfyNode(my_category, color="#FF0000")
+@ComfyNode(color="#FF0000")
 def convert_to_mask(image: ImageTensor, threshold: float = NumberInput(0.5, 0, 1, 0.0001, display="slider")) -> MaskTensor:
     return (image > threshold).float()
 
 
 # The decorated functions remain normal Python functions, so we can nest them inside each other too.
-@ComfyNode(my_category)
+@ComfyNode()
 def mask_image_with_image(
     image: ImageTensor, image_to_use_as_mask: ImageTensor
 ) -> ImageTensor:
