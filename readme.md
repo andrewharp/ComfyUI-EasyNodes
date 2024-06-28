@@ -9,12 +9,14 @@ For example:
 from easy_nodes import ComfyNode, ImageTensor, MaskTensor, NumberInput, initialize_easy_nodes
 initialize_easy_nodes(default_category="Example category", auto_register=False)
 
+
 @ComfyNode(color="#0066cc", bg_color="#ffcc00", return_names=["Below", "Above"])
 def threshold_image(image: ImageTensor,
                     threshold: float = NumberInput(0.5, 0, 1, 0.01, display="slider")) -> tuple[MaskTensor, MaskTensor]:
     """Returns separate masks for values above and below the threshold value."""
     mask_below = torch.any(image < threshold, dim=-1)
     return mask_below.float(), (~mask_below).float()
+
 
 NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS = easy_nodes.get_node_mappings()
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
