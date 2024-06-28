@@ -1,4 +1,3 @@
-import logging
 from random import random
 from easy_nodes import (
     NumberInput,
@@ -61,7 +60,6 @@ easy_nodes.create_field_setter_node(MyFunClass)
 
 @ComfyNode(is_output_node=True, color="#4F006F")
 def my_fun_class_node_processor(fun_class: MyFunClass) -> ImageTensor:
-    print(f"Processing MyFunClass: {fun_class.width} {fun_class.height} {fun_class.color}")
     my_image = torch.rand((1, fun_class.height, fun_class.width, 3)) * fun_class.color
     return my_image
 
@@ -140,12 +138,7 @@ def text_repeater(text: str=StringInput("Sample text"),
 def combine_lists(
     image1: list[ImageTensor], image2: list[ImageTensor]
 ) -> list[ImageTensor]:
-    print(type(image1), type(image2))
     combined_lists = image1 + image2
-    
-    for i, image in enumerate(combined_lists):
-        print(f"Image {i}: {image.shape} {image.dtype}")
-    
     return combined_lists
 
 
@@ -163,7 +156,6 @@ def add_images(
 @ComfyNode(is_output_node=True, color="#006600")
 def example_show_mask(mask: MaskTensor) -> MaskTensor:
     easy_nodes.show_image(mask)
-    logging.info("Showing mask")
     return mask
 
 
@@ -184,7 +176,6 @@ def example_mask_image(image: ImageTensor,
     image = image.clone()
     image[mask == 0] = value
     easy_nodes.show_image(image)
-    logging.error(f"Showing image: {image.shape} {mask.shape}")
     return image
 
 
