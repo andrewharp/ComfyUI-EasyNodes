@@ -16,8 +16,7 @@ my_category = "EasyNodes Examples"
 
 # By default EasyNodes will auto-register any decorated function (automatically insert it into ComfyUI's node registry).
 # If you want to manually register your nodes the regular way, turn off
-# auto_register and export the easy_nodes.NODE_CLASS_MAPPINGS and easy_nodes.NODE_DISPLAY_NAME_MAPPINGS
-# dicts.
+# auto_register and call easy_nodes.get_node_mappings()
 easy_nodes.initialize_easy_nodes(default_category=my_category, auto_register=True)
 
 # This is the converted example node from ComfyUI's example_node.py.example file.

@@ -1,12 +1,12 @@
 # Effortless Nodes for ComfyUI
 
-This package aims to make adding new [ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes as easy as possible, and provide a some customization options through pure Python that were previously only accessible through JavaScript.
+This package aims to make adding new [ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes as easy as possible, and to provide functionality through pure Python that was previously only accessible with custom JavaScript.
 
 It processes your function's Python signature to create the node definition ComfyUI is expecting. All you have to do is annotate your inputs and outputs and add the `@ComfyNode` decorator.
 
 For example:
 ```python
-from easy_nodes import ComfyNode, ImageTensor, MaskTensor
+from easy_nodes import ComfyNode, ImageTensor, MaskTensor, NumberInput
 
 @ComfyNode("Example category", color="#0066cc", bg_color="#ffcc00", return_names=["Below", "Above"])
 def threshold_image(image: ImageTensor,
@@ -31,16 +31,22 @@ Note that ImageTensor/MaskTensor are just syntactic sugar for semantically diffe
 
 For more control, you can call [easy_nodes.initialize_easy_nodes(...)](https://github.com/andrewharp/ComfyUI-EasyNodes?tab=readme-ov-file#initialization-options) before creating nodes and and turn on some advanced settings that will apply to all nodes you create.
 
-## New in 1.0.0:
+## New in 1.0:
 
-- Renamed to ComfyUI-EasyNodes (from ComfyUI-Annotations) to better reflect the package's goal (rather than the means)
-- Now on pip
-- Automatic module reloading: if you edit your node source, immediately see the changes
-- LLM-based debugging: optionally have ChatGPT take a crack at fixing your code
-- Set node colors via Python argument (no JavaScript required)
-- Add preview text and images to nodes via show_text and show_image Python functions, no JavaScript required.
-- Automatically create nodes with widgets to set the fields of existing Python objects.
-- Tooltips and deep links to node source code
+- Renamed to ComfyUI-EasyNodes from ComfyUI-Annotations to better reflect the package's goal (rather than the means)
+  - Package is now `easy_nodes` rather than `comfy_annotations`
+- Now on pip/PyPI! ```pip install ComfyUI-EasyNodes```
+- Set node foreground and background color via Python argument, no JS required: `@ComfyNode(color="FF0000", bg_color="00FF00")`
+- Add previews to nodes without JavaScript. Just drop either of these in the body of your node's function:
+  - `easy_nodes.show_text("hello world")`
+  - `easy_nodes.show_image(image)`
+- Automatically create nodes from existing Python classes. The dynamic node will automatically add a widget for every field.
+- Info tooltip on nodes auto-generated from your function's docstring
+- New optional settings features:
+  - Make images persist across browser refreshes via a settings option (provided they're still on the server)
+  - Automatic module reloading: if you turn on the setting, immediately see the changes to code on the next run.
+  - LLM-based debugging: optionally have ChatGPT take a crack at fixing your code
+  - Deep links to source code if you set a base source path (e.g. to github or your IDE)
 - Bug fixes
 
 ## Features
@@ -67,7 +73,8 @@ To use this module in your ComfyUI project, follow these steps:
     ```
     or, if you want to have an editable version:
     ```bash
-    pip install -e https://github.com/andrewharp/ComfyUI-EasyNodes
+    git clone https://github.com/andrewharp/ComfyUI-EasyNodes
+    pip install -e ComfyUI-EasyNodes
     ```
     Note that this is not a typical ComfyUI nodepack, so does not itself live under custom_nodes.
     
@@ -78,26 +85,14 @@ To use this module in your ComfyUI project, follow these steps:
     ```
 
 3. **Integrate into Your Project**:
-    - Open your ComfyUI project's `__init__.py` (e.g. `ComfyUI/custom_nodes/my_project/__init__.py`).
-    - Make sure you're importing the module where you define your nodes:
-
+    Open `ComfyUI/custom_nodes/<your_project>/__init__.py`, and make sure you're importing the module where you define your nodes:
     ```python
     import your_node_module
     ```
 
-    Then, in `your_node_module.py`:
-    ```python
-    from easy_nodes import ComfyNode, NumberInput, ImageTensor, initialize_easy_nodes
+    Now simply annotate functions with @ComfyNode and EasyNodes will insert them into ComfyUI's node mappings automatically.
 
-    easy_nodes.initialize_easy_nodes(default_category=my_category)
-
-    @ComfyNode()
-    def create_random_image(width: int=NumberInput(128, 128, 1024), 
-                            height: int=NumberInput(128, 128, 1024)) -> ImageTensor:
-        return torch.rand((1, height, width, 3))
-    ```
-
-    If you run into problems with the auto-registration, you can try turning it off and give ComfyUI your node mappings the regular way:
+    However if you run into problems with the auto-registration, you can try turning it off and call `easy_nodes.get_node_mappings()` to give ComfyUI your node mappings the regular way:
     <details>
 
     In `__init__.py`:
@@ -157,11 +152,12 @@ The settings mostly control defaults and some optional features that I find nice
                debug=True,
                color="#FF00FF")
     def enhance_image(image: ImageTensor, factor: NumberInput(0.5, 0, 1, 0.1)) -> ImageTensor:
-        # Function implementation, do stuff to image.
-        return image
+        output_image = enhance_my_image(image, factor)
+        easy_nodes.show_image(output_image)  # Will show the image on the node, so you don't need a separate PreviewImage node.
+        return output_image
     ```
 
-2. **Annotate your function inputs and outputs**: Fully annotate function parameters and return types, using `list` to wrap types as appropriate. `tuple[output1, output2]` should be used if you have multiple outputs, otherwise you can just return the naked type (in the example below, that would be `list[input]`). This information is used to generate the fields of the internal class definition `@ComfyNode` sends to ComfyUI. If you don't annotate the inputs, the input will be treated as a wildcard. If you don't annotate the output, you won't see anything at all in ComfyUI.
+2. **Annotate your function inputs and outputs**: Fully annotate function parameters and return types, using `list` to wrap types as appropriate. `tuple[output1, output2]` should be used if you have multiple outputs, otherwise you can just return the naked type (in the example below, that would be `list[int]`). This information is used to generate the fields of the internal class definition `@ComfyNode` sends to ComfyUI. If you don't annotate the inputs, the input will be treated as a wildcard. If you don't annotate the output, you won't see anything at all in ComfyUI.
 
     Example:
     ```python
@@ -212,11 +208,11 @@ export OPENAI_API_KEY=sk-P#$@%J345jsd...
 python main.py
 ```
 
-Then open settings and turn the LLM debugging option to either "On" or "Auto".
+Then open settings and turn the LLM debugging option to either "On" or "AutoFix".
 
-When set to "On", any exception in execution by a EasyNodes node (not regular nodes) will cause EasyNodes to collect all the relevent data and package it into a prompt for ChatGPT, which is instructed to return a fixed function from which a patch is created. That patch is displayed in the console and saved to disk.
-
-When set to "AutoFix", EasyNodes will also apply the patch and attempt to run the prompt again, up to the configurable retry limit.
+Behavior:
+  * "On": any exception in execution by an EasyNodes node (not regular nodes) will cause EasyNodes to collect all the relevent data and package it into a prompt for ChatGPT, which is instructed to reply with a fixed version of your function function from which a patch is created. That patch is displayed in the console and also saved to disk for evaluation.
+  * "AutoFix": All of the above, and EasyNodes will also apply the patch and attempt to run the prompt again. This will repeat up to the configurable retry limit.
 
 This feature is very experimental, and any contributions for things like improving the prompt flow and suporting other LLMs are welcome! You can find the implementation in [easy_nodes/llm_debugging.py](easy_nodes/llm_debugging.py).
 
