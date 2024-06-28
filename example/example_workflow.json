@@ -3,36 +3,11 @@
   "last_link_id": 207,
   "nodes": [
     {
-      "id": 20,
-      "type": "PreviewImage",
-      "pos": [
-        2520,
-        1110
-      ],
-      "size": {
-        "0": 210,
-        "1": 270
-      },
-      "flags": {},
-      "order": 16,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 169
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "PreviewImage"
-      }
-    },
-    {
       "id": 139,
       "type": "PreviewImage",
       "pos": [
-        2212.774551171874,
-        1231.061705859375
+        2496.723609474713,
+        1235.674149344319
       ],
       "size": {
         "0": 210,
@@ -57,12 +32,12 @@
       "id": 106,
       "type": "PreviewExample",
       "pos": [
-        775.3641983886721,
-        1234.26650078125
+        1232.0424397167956,
+        1251.8729675781246
       ],
       "size": {
         "0": 210,
-        "1": 226
+        "1": 225.99998474121094
       },
       "flags": {},
       "order": 6,
@@ -97,94 +72,11 @@
       ]
     },
     {
-      "id": 109,
-      "type": "CombineLists",
-      "pos": [
-        1902,
-        809
-      ],
-      "size": {
-        "0": 210,
-        "1": 46
-      },
-      "flags": {},
-      "order": 13,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image1",
-          "type": "IMAGE",
-          "link": 163
-        },
-        {
-          "name": "image2",
-          "type": "IMAGE",
-          "link": 185
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            168
-          ],
-          "shape": 6,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CombineLists"
-      }
-    },
-    {
-      "id": 84,
-      "type": "CombineLists",
-      "pos": [
-        2187,
-        805
-      ],
-      "size": {
-        "0": 210,
-        "1": 46
-      },
-      "flags": {},
-      "order": 15,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image1",
-          "type": "IMAGE",
-          "link": 125
-        },
-        {
-          "name": "image2",
-          "type": "IMAGE",
-          "link": 168
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            169,
-            193
-          ],
-          "shape": 6,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CombineLists"
-      }
-    },
-    {
       "id": 142,
       "type": "MyFunClass",
       "pos": [
-        1524.7745511718751,
-        1241.061705859375
+        1808.7236094747136,
+        1245.674149344319
       ],
       "size": {
         "0": 315,
@@ -212,123 +104,6 @@
         640,
         640
       ]
-    },
-    {
-      "id": 71,
-      "type": "AnnotatedExample",
-      "pos": [
-        1373,
-        106
-      ],
-      "size": {
-        "0": 315,
-        "1": 130
-      },
-      "flags": {},
-      "order": 4,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 100
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            196
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "AnnotatedExample"
-      },
-      "widgets_values": [
-        "Hello World!",
-        0,
-        1,
-        "enabled"
-      ]
-    },
-    {
-      "id": 125,
-      "type": "PreviewImage",
-      "pos": [
-        1929,
-        102
-      ],
-      "size": {
-        "0": 210,
-        "1": 270
-      },
-      "flags": {},
-      "order": 8,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 196
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "PreviewImage"
-      }
-    },
-    {
-      "id": 15,
-      "type": "PreviewImage",
-      "pos": [
-        2342,
-        383
-      ],
-      "size": {
-        "0": 210,
-        "1": 270
-      },
-      "flags": {},
-      "order": 14,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 112
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "PreviewImage"
-      }
-    },
-    {
-      "id": 116,
-      "type": "PreviewImage",
-      "pos": [
-        2522,
-        727
-      ],
-      "size": {
-        "0": 210,
-        "1": 270
-      },
-      "flags": {},
-      "order": 17,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 193
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "PreviewImage"
-      }
     },
     {
       "id": 4,
@@ -374,57 +149,11 @@
       ]
     },
     {
-      "id": 81,
-      "type": "AddImages",
-      "pos": [
-        2021,
-        509
-      ],
-      "size": {
-        "0": 210,
-        "1": 66
-      },
-      "flags": {},
-      "order": 12,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image1",
-          "type": "IMAGE",
-          "link": 165
-        },
-        {
-          "name": "image2",
-          "type": "IMAGE",
-          "link": 184
-        },
-        {
-          "name": "image3",
-          "type": "IMAGE",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            112
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "AddImages"
-      }
-    },
-    {
       "id": 91,
       "type": "TextRepeater",
       "pos": [
-        382.364198388672,
-        1230.26650078125
+        839.0424397167969,
+        1247.8729675781246
       ],
       "size": {
         "0": 298.5838928222656,
@@ -453,140 +182,16 @@
       ]
     },
     {
-      "id": 141,
-      "type": "MyFunClassNodeProcessor",
-      "pos": [
-        1870.7745511718751,
-        1270.061705859375
-      ],
-      "size": {
-        "0": 257.3725891113281,
-        "1": 46.323490142822266
-      },
-      "flags": {},
-      "order": 3,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "fun_class",
-          "type": "FUN_CLASS",
-          "link": 202
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            203
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "MyFunClassNodeProcessor"
-      },
-      "color": "#4F006F",
-      "bgcolor": "#2F0042"
-    },
-    {
-      "id": 49,
-      "type": "ConvertToImage",
-      "pos": [
-        1581,
-        680
-      ],
-      "size": {
-        "0": 210,
-        "1": 26
-      },
-      "flags": {},
-      "order": 10,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "mask",
-          "type": "MASK",
-          "link": 207,
-          "slot_index": 0
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            125
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "ConvertToImage"
-      },
-      "color": "#00FF00",
-      "bgcolor": "#009900"
-    },
-    {
-      "id": 83,
-      "type": "ExampleMaskImage",
-      "pos": [
-        1251,
-        339
-      ],
-      "size": [
-        275.15281611122464,
-        347.3918510824771
-      ],
-      "flags": {},
-      "order": 9,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 116
-        },
-        {
-          "name": "mask",
-          "type": "MASK",
-          "link": 205
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            163,
-            165
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "ExampleMaskImage"
-      },
-      "widgets_values": [
-        0
-      ],
-      "color": "#0000FF",
-      "bgcolor": "#000099"
-    },
-    {
       "id": 119,
       "type": "ExampleMaskImage",
       "pos": [
         1234,
         728
       ],
-      "size": [
-        303.48784480690324,
-        371.7372841208073
-      ],
+      "size": {
+        "0": 303.48785400390625,
+        "1": 371.7372741699219
+      },
       "flags": {},
       "order": 11,
       "mode": 0,
@@ -627,8 +232,8 @@
       "id": 143,
       "type": "ThresholdImage",
       "pos": [
-        842,
-        591
+        839,
+        589
       ],
       "size": {
         "0": 315,
@@ -673,6 +278,375 @@
       ],
       "color": "#0066cc",
       "bgcolor": "#ffcc00"
+    },
+    {
+      "id": 83,
+      "type": "ExampleMaskImage",
+      "pos": [
+        1251,
+        339
+      ],
+      "size": {
+        "0": 275.1528015136719,
+        "1": 347.391845703125
+      },
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 116
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 205
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            163,
+            165
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ExampleMaskImage"
+      },
+      "widgets_values": [
+        0
+      ],
+      "color": "#0000FF",
+      "bgcolor": "#000099"
+    },
+    {
+      "id": 141,
+      "type": "MyFunClassNodeProcessor",
+      "pos": [
+        2181.1306656359343,
+        1254.2489846781252
+      ],
+      "size": {
+        "0": 257.3725891113281,
+        "1": 46.323490142822266
+      },
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "fun_class",
+          "type": "FUN_CLASS",
+          "link": 202
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            203
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MyFunClassNodeProcessor"
+      },
+      "color": "#4F006F",
+      "bgcolor": "#2F0042"
+    },
+    {
+      "id": 109,
+      "type": "CombineLists",
+      "pos": [
+        1817,
+        767
+      ],
+      "size": {
+        "0": 210,
+        "1": 46
+      },
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image1",
+          "type": "IMAGE",
+          "link": 163
+        },
+        {
+          "name": "image2",
+          "type": "IMAGE",
+          "link": 185
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            168
+          ],
+          "shape": 6,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CombineLists"
+      }
+    },
+    {
+      "id": 116,
+      "type": "PreviewImage",
+      "pos": [
+        2321,
+        716
+      ],
+      "size": [
+        387.5997876780352,
+        406.0673642007994
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 193
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 84,
+      "type": "CombineLists",
+      "pos": [
+        2078,
+        719
+      ],
+      "size": {
+        "0": 210,
+        "1": 46
+      },
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image1",
+          "type": "IMAGE",
+          "link": 125
+        },
+        {
+          "name": "image2",
+          "type": "IMAGE",
+          "link": 168
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            193
+          ],
+          "shape": 6,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CombineLists"
+      }
+    },
+    {
+      "id": 15,
+      "type": "PreviewImage",
+      "pos": [
+        2329,
+        354
+      ],
+      "size": [
+        290.5997876780352,
+        310.0673642007994
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 112
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 81,
+      "type": "AddImages",
+      "pos": [
+        2075,
+        356
+      ],
+      "size": {
+        "0": 210,
+        "1": 66
+      },
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image1",
+          "type": "IMAGE",
+          "link": 165
+        },
+        {
+          "name": "image2",
+          "type": "IMAGE",
+          "link": 184
+        },
+        {
+          "name": "image3",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            112
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AddImages"
+      }
+    },
+    {
+      "id": 49,
+      "type": "ConvertToImage",
+      "pos": [
+        1577,
+        603
+      ],
+      "size": {
+        "0": 210,
+        "1": 26
+      },
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 207,
+          "slot_index": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            125
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ConvertToImage"
+      },
+      "color": "#00FF00",
+      "bgcolor": "#009900"
+    },
+    {
+      "id": 125,
+      "type": "PreviewImage",
+      "pos": [
+        1245.7276206015622,
+        -139.76685204003934
+      ],
+      "size": [
+        345.5997876780352,
+        368.0673642007994
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 196
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 71,
+      "type": "AnnotatedExample",
+      "pos": [
+        835.7276206015616,
+        -138.76685204003934
+      ],
+      "size": [
+        333.5997876780352,
+        147.1673642007991
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 100
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            196
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AnnotatedExample"
+      },
+      "widgets_values": [
+        "Hello World!",
+        0,
+        1,
+        "enabled"
+      ]
     }
   ],
   "links": [
@@ -738,14 +712,6 @@
       0,
       84,
       1,
-      "IMAGE"
-    ],
-    [
-      169,
-      84,
-      0,
-      20,
-      0,
       "IMAGE"
     ],
     [
@@ -841,8 +807,8 @@
     {
       "title": "Adding Preview Text",
       "bounding": [
-        371,
-        1157,
+        827,
+        1175,
         624,
         313
       ],
@@ -852,10 +818,10 @@
     {
       "title": "Colorful Nodes and adding Preview Images",
       "bounding": [
-        826,
+        829,
         265,
-        975,
-        845
+        1890,
+        867
       ],
       "color": "#3f789e",
       "font_size": 24
@@ -863,10 +829,21 @@
     {
       "title": "Dynamic nodes from Python classes",
       "bounding": [
-        1486,
-        1157,
+        1770,
+        1160,
         947,
         330
+      ],
+      "color": "#3f789e",
+      "font_size": 24
+    },
+    {
+      "title": "ComfyUI example node",
+      "bounding": [
+        826,
+        -214,
+        776,
+        452
       ],
       "color": "#3f789e",
       "font_size": 24
@@ -875,10 +852,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.6830134553650705,
+      "scale": 0.5131581182307069,
       "offset": {
-        "0": -79.82854480690358,
-        "1": 209.7400158791936
+        "0": 1298.943361825788,
+        "1": 936.8752894516717
       }
     }
   },
