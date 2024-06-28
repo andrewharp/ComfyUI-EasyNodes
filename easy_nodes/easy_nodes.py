@@ -103,11 +103,13 @@ def initialize_easy_nodes(default_category: str = "EasyNodes",
 
     NODE_CLASS_MAPPINGS = {}
     NODE_DISPLAY_NAME_MAPPINGS = {}
-
-    logging.info(f"Initializing EasyNodes. Auto-registration: {auto_register}")
-    if auto_register is AutoRegisterSentinel.DEFAULT:
-        logging.warning("Auto-registration not set explicitly. Will default to False in a future version. Call easy_nodes.initialize_easy_nodes(auto_register=True|False) to suppress this warning.")
     
+    auto_register_message = ""
+    if auto_register is AutoRegisterSentinel.DEFAULT:
+        auto_register_message = " NOTE: Auto-registration not set explicitly, running in mixed-mode. Will default to False in a future version. If already using get_node_mappings(), you can ignore this message."
+
+    logging.info(f"Initializing EasyNodes. Auto-registration: {auto_register}{auto_register_message}")
+
     if auto_register is True:
         NODE_CLASS_MAPPINGS = comfyui_nodes.NODE_CLASS_MAPPINGS
         NODE_DISPLAY_NAME_MAPPINGS = comfyui_nodes.NODE_DISPLAY_NAME_MAPPINGS
