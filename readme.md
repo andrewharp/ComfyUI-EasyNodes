@@ -162,14 +162,14 @@ The settings mostly control defaults and some optional features that I find nice
 
 ### Registering new types:
 
-Say you want a new type of special Tensor that ComfyUI will treat differently from Images. Say, a rotation matrix. Just create a placeholder class for it and use that in your annotations -- it's just for semantics; internally your functions will get whatever type of class they're handed.
+Say you want a new type of special Tensor that ComfyUI will treat differently from Images. Perhaps a rotation matrix. Just create a placeholder class for it and use that in your annotations -- it's just for semantics; internally your functions will get whatever type of class they're handed (though with the verification settings turned on, you can still be assured it's a Tensor object (and you are free to create your own custom verifier for more control)).
 
 ```python
 class RotationMatrix(torch.Tensor):
     def __init__(self):
         raise TypeError("!") # Will never be instantiated
 
-easy_nodes.register_type(RotationMatrix, "ROTATION_MATRIX")
+easy_nodes.register_type(RotationMatrix, "ROTATION_MATRIX", verifier=TensorVerifier("ROTATION_MATRIX"))
 
 @ComfyNode()
 def rotate_matrix_more(rot1: RotationMatrix, rot2: RotationMatrix) -> RotationMatrix:
