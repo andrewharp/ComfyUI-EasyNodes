@@ -32,7 +32,9 @@ Note that ImageTensor/MaskTensor are just syntactic sugar for semantically diffe
 
 - Custom verifiers for types on input and output for your nodes. For example, it will automatically verify that images always have 1, 3 or 4 channels (B&W, RGB and RGBA). Set `verify_level` when calling initialize_easy_nodes to either CheckSeverityMode OFF, WARN, or FATAL (default is WARN). You can write your own verifiers. See [comfy_types.py](easy_nodes/comfy_types.py) for examples of types with verifiers.
 - Expanded ComfyUI type support. See [comfy_types.py](easy_nodes/comfy_types.py) for the full list of registered types.
-- Added warnings if relying on node auto-registration without explicitly asking for it (while also supporting get_node_mappings() at the same time). This is because the default for auto_register will change to False in a future release, in order to make ComfyUI-EasyNodes more easily findable by indexers like ComfyUI-Manager (which expects your nodes to be found in your `__init__.py`). If you wish to retain the previous behavior, you can enable auto-registration explicitly with `easy_nodes.initialize_easy_nodes(auto_register=True)`.
+- Added warnings if relying on node auto-registration without explicitly asking for it (while also supporting get_node_mappings() at the same time). This is because the default for auto_register will change to False in a future release, in order to make ComfyUI-EasyNodes more easily findable by indexers like ComfyUI-Manager (which expects your nodes to be found in your `__init__.py`). Options:
+  - If you wish to retain the previous behavior, you can enable auto-registration explicitly with `easy_nodes.initialize_easy_nodes(auto_register=True)`.
+  - Otherwise, export your nodes the normal way as shown in the [installation](#installation) section.
 
 ## New in 1.0:
 
