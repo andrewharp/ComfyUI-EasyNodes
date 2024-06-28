@@ -123,7 +123,8 @@ ComfyNode(is_changed=lambda: random.random())(
 # it will be treated as an ImageTensor.
 @ComfyNode(color="#00FF00")
 def convert_to_image(mask: MaskTensor) -> ImageTensor:
-    return mask
+    image = mask.unsqueeze(-1).expand(-1, -1, -1, 3)
+    return image
 
 
 @ComfyNode()
@@ -139,7 +140,12 @@ def text_repeater(text: str=StringInput("Sample text"),
 def combine_lists(
     image1: list[ImageTensor], image2: list[ImageTensor]
 ) -> list[ImageTensor]:
+    print(type(image1), type(image2))
     combined_lists = image1 + image2
+    
+    for i, image in enumerate(combined_lists):
+        print(f"Image {i}: {image.shape} {image.dtype}")
+    
     return combined_lists
 
 
@@ -166,7 +172,7 @@ def example_show_mask(mask: MaskTensor) -> MaskTensor:
 @ComfyNode("Example category", color="#0066cc", bg_color="#ffcc00", return_names=["Below", "Above"])
 def threshold_image(image: ImageTensor, threshold_value: float = NumberInput(0.5, 0, 1, 0.0001, display="slider")) -> tuple[MaskTensor, MaskTensor]:
     """Returns separate masks for values above and below the threshold value."""
-    mask_below = torch.any(image < threshold_value, dim=-1)
+    mask_below = torch.any(image < threshold_value, dim=-1).squeeze(-1)
     return mask_below.float(), (~mask_below).float()
 
 
@@ -178,6 +184,7 @@ def example_mask_image(image: ImageTensor,
     image = image.clone()
     image[mask == 0] = value
     easy_nodes.show_image(image)
+    logging.error(f"Showing image: {image.shape} {mask.shape}")
     return image
 
 
