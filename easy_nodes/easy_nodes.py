@@ -411,6 +411,11 @@ def _verify_values(config: EasyNodesConfig,
                    debug: bool=False):
     for i, val in enumerate(values):
         param_type = types[i]
+        
+        # It's a Choice.
+        if isinstance(param_type, list):
+            continue        
+        
         if val is None:
             continue
 
@@ -662,6 +667,10 @@ def _ensure_package_dicts_exist(module_name: str):
 
 
 def maybe_autoconvert(comfyui_type_name: str, arg: any):
+    # Choices don't come with a registered type, they're just a list of strings.
+    if isinstance(comfyui_type_name, list):
+        return arg
+    
     if _SHOULD_AUTOCONVERT.get(comfyui_type_name, False):
         comfyui_type = _COMFYUI_TYPE_TO_ANNOTATION_CLS[comfyui_type_name]
         if isinstance(arg, list):
