@@ -117,7 +117,7 @@ The settings mostly control defaults and some optional features that I find nice
 - `default_category`: The default category for nodes. Defaults to "EasyNodes".
 - `auto_register`: Whether to automatically register nodes with ComfyUI (so you don't have to export). Previously defaulted to True; now defaults to half-true (will auto-register, allow you to export, and print a warning). In a future release will default to False.
 - `docstring_mode`: The mode for generating node descriptions that show up in tooltips. Defaults to AutoDescriptionMode.FULL.
-- `verify_tensors`: Whether to verify tensors for shape and data type according to ComfyUI type (MASK, IMAGE, etc). Runs on inputs and outputs. Defaults to False, as I've made some assumptions about shapes that may not be universal.
+- `verify_level`: Whether to verify tensors for shape and data type according to ComfyUI type (MASK, IMAGE, etc). Runs on inputs and outputs. Can be set to CheckSeverityMode.OFF, WARN, or FATAL. Defaults to WARN, as I've made some assumptions about shapes that may not be universal.
 - `auto_move_tensors`: Whether to automatically move torch Tensors to the GPU before your function gets called, and then to the CPU on output. Defaults to False.
 
 
