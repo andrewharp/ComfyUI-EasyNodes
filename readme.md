@@ -16,7 +16,7 @@ def threshold_image(image: ImageTensor,
     return mask_below.float(), (~mask_below).float()
 ```
 
-That (plus [a tiny bit initialization](#installation) in `__init__.py`) and your node is ready for ComfyUI! More examples can be found [here](example/example_nodes.py).
+That (plus [a tiny bit of initialization](#installation) in `__init__.py`) and your node is ready for ComfyUI! More examples can be found [here](example/example_nodes.py).
 
 Sample node with tooltip and deep source link:
 
