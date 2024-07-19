@@ -1,4 +1,4 @@
-from easy_nodes.comfy_types import (  # noqa: F401
+from .comfy_types import (  # noqa: F401
     ConditioningTensor,
     ImageTensor,
     LatentTensor,
@@ -8,7 +8,7 @@ from easy_nodes.comfy_types import (  # noqa: F401
     PhotoMaker,
     SigmasTensor,
 )
-from easy_nodes.easy_nodes import (  # noqa: F401
+from .easy_nodes import (  # noqa: F401
     AnyType,
     AutoDescriptionMode,
     CheckSeverityMode,

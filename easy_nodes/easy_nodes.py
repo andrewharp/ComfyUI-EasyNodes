@@ -23,9 +23,7 @@ import torch
 from colorama import Fore
 from PIL import Image
 
-import easy_nodes
-import easy_nodes.config_service as config_service
-import easy_nodes.llm_debugging as llm_debugging
+from . import config_service, llm_debugging
 
 # Export the web directory so ComfyUI can pick up the JavaScript.
 _web_path = os.path.join(os.path.dirname(__file__), "web")
@@ -155,7 +153,7 @@ def _get_curr_config() -> EasyNodesConfig:
         logging.warning(
             "easy_nodes.initialize_easy_nodes() should be called prior to any other EasyNodes activity. Initializing now with easy_nodes.initialize_easy_nodes() for backwards compatibility."
         )
-        easy_nodes.initialize_easy_nodes()
+        initialize_easy_nodes()
     return _current_config
 
 
@@ -660,6 +658,7 @@ def _call_function_and_verify_result(
 
             if not isinstance(result, tuple):
                 result = (result,)
+
             assert len(result) == len(
                 adjusted_return_types
             ), f"{wrapped_name}: Number of return values {len(result)} does not match number of return types {len(adjusted_return_types)}\n{code_origin_loc}"
@@ -766,6 +765,8 @@ def ComfyNode(
     debug: bool = False,
     color: str = None,
     bg_color: str = None,
+    height: int = None,
+    width: int = None,
 ):
     """
     Decorator function for creating ComfyUI nodes.
@@ -784,6 +785,8 @@ def ComfyNode(
         debug (bool): Indicates whether to enable debug logging for this node.
         color (str): The color of the node.
         bg_color (str): The background color of the node.
+        height (int): The default height of the node.
+        width (int): The default width of the node.
 
     Returns:
         A callable used that can be used with a function to create a ComfyUI node.
@@ -1028,6 +1031,8 @@ def ComfyNode(
             is_changed=wrapped_is_changed,
             color=color,
             bg_color=bg_color,
+            height=height,
+            width=width,
             debug=debug,
             source_location=source_location,
             easy_nodes_config=curr_config,
@@ -1200,6 +1205,8 @@ def _create_comfy_node(
     is_changed=None,
     color=None,
     bg_color=None,
+    height=None,
+    width=None,
     source_location=None,
     debug=False,
     easy_nodes_config: EasyNodesConfig = None,
@@ -1216,6 +1223,12 @@ def _create_comfy_node(
     if bg_color is not None:
         _ = hex_to_color(bg_color)  # Check that it's a valid color
         node_info["bgColor"] = bg_color
+
+    if height is not None:
+        node_info["height"] = height
+
+    if width is not None:
+        node_info["width"] = width
 
     if source_location is not None:
         node_info["sourceLocation"] = source_location
