@@ -12,15 +12,16 @@ import traceback
 from colorama import Fore, Style
 from openai import OpenAI
 
-import easy_nodes.config_service as config_service
+from . import config_service
 
 
 def create_openai_client() -> OpenAI:
     openai_key = os.environ.get("OPENAI_API_KEY")
-    
+
     if not openai_key:
-        raise ValueError("OpenAI API key not found in OPENAI_API_KEY environment variable. "
-                         + "Please set the API key to use LLM debugging.")
+        raise ValueError(
+            "OpenAI API key not found in OPENAI_API_KEY environment variable. " + "Please set the API key to use LLM debugging."
+        )
     return OpenAI(api_key=openai_key)
 
 
@@ -52,7 +53,7 @@ def extract_function_or_class_name(source):
     - The name of the function or class.
     """
     # Regular expression pattern to match function or class names
-    pattern = r'(?:def|class)\s+(\w+)'
+    pattern = r"(?:def|class)\s+(\w+)"
 
     # Search for the pattern in the source code
     match = re.search(pattern, source)
@@ -81,7 +82,7 @@ def module_to_file_path(module_name):
         raise ValueError(f"Module '{module_name}' not found.")
 
     # Get the file path of the module
-    file_path = getattr(module_obj, '__file__', None)
+    file_path = getattr(module_obj, "__file__", None)
 
     if file_path is None:
         # If the file path is not available, raise an error or return None
@@ -91,7 +92,7 @@ def module_to_file_path(module_name):
     file_path = os.path.abspath(file_path)
 
     # If the file path ends with '.pyc' or '.pyo', remove the 'c' or 'o' extension
-    if file_path.endswith(('.pyc', '.pyo')):
+    if file_path.endswith((".pyc", ".pyo")):
         file_path = file_path[:-1]
 
     return file_path
@@ -109,7 +110,7 @@ def split_top_level_entries(code):
     current_entry = []
     start_indices = []
 
-    for i, line in enumerate(code.split('\n')):
+    for i, line in enumerate(code.split("\n")):
         indent_level = len(line) - len(line.lstrip())
         line_empty = len(line.strip()) == 0
 
@@ -118,18 +119,18 @@ def split_top_level_entries(code):
         if (
             indent_level == 0
             and not line_empty
-            and not line.strip().startswith('#')
-            and (not current_entry or not current_entry[-1].strip().startswith('@'))
+            and not line.strip().startswith("#")
+            and (not current_entry or not current_entry[-1].strip().startswith("@"))
         ):
             if current_entry:
-                entries.append('\n'.join(current_entry))
+                entries.append("\n".join(current_entry))
             current_entry = []
             start_indices.append(i)
 
         current_entry.append(line)
 
     if current_entry:
-        entries.append('\n'.join(current_entry))
+        entries.append("\n".join(current_entry))
 
     return entries, start_indices
 
@@ -146,7 +147,7 @@ def replace_source_with_updates(entry_code: str, original_source: dict[str, list
             if f"def {entry_name}(" in source_item or f"class {entry_name}(" in source_item:
                 original_entry_code = source_item
                 original_module_name = module_name
-    
+
     assert original_entry_code is not None, f"Original source code for {entry_name} not found"
     assert original_module_name is not None, f"Original module name for {entry_name} not found"
 
@@ -177,7 +178,7 @@ def replace_source_with_updates(entry_code: str, original_source: dict[str, list
         apply_patch(original_file_path, patch_file, patched_file)
 
         verify_same(tmp_file_path, patched_file)
-        
+
         # If the diff was applied correctly, consider updating the original file
         shutil.copy(patched_file, original_file_path)
         logging.info(f"Original file '{original_file_path}' updated with the patch.")
@@ -199,24 +200,15 @@ def process_exception_logic(func, exception, input_desc, buffer):
     prompt, original_source = create_llm_prompt(func, input_desc, buffer_content, exception)
 
     # Prepare the chat prompt for OpenAI
-    messages = [
-        {"role": "system", "content": chatgpt_role_description},
-        {"role": "user", "content": prompt}
-    ]
-    
+    messages = [{"role": "system", "content": chatgpt_role_description}, {"role": "user", "content": prompt}]
+
     openai_client = create_openai_client()
-    
+
     model_name = config_service.get_config_value("easy_nodes.llm_model", "gpt-4o")
-    
+
     # Send the prompt to OpenAI and get the response
     # Assuming send_prompt_to_openai returns a structured response with the modified function code
-    response = send_prompt_to_openai(
-        client=openai_client,
-        max_tokens=4096,
-        model=model_name,
-        messages=messages,
-        verbose=True
-    )
+    response = send_prompt_to_openai(client=openai_client, max_tokens=4096, model=model_name, messages=messages, verbose=True)
 
     # # Process the response to extract the modified source code
     function_code = response.choices[0].message.content
@@ -228,14 +220,14 @@ def process_exception_logic(func, exception, input_desc, buffer):
 
     function_code = remove_code_block_delimiters(function_code)
     logging.info(f"Modified function code:\n{function_code}")
-    
-    function_code = function_code[function_code.index("@ComfyFunc"):]
+
+    function_code = function_code[function_code.index("@ComfyFunc") :]
 
     # Split the function_code into top-level entries (classes and functions)
     top_level_entries, _ = split_top_level_entries(function_code)
 
     for entry_code in top_level_entries:
-        replace_source_with_updates(entry_code, original_source)        
+        replace_source_with_updates(entry_code, original_source)
 
 
 def create_patch(file_a_path, file_b_path, patch_file_path):
@@ -247,21 +239,17 @@ def create_patch(file_a_path, file_b_path, patch_file_path):
     - file_b_path: Path to the modified file (file B).
     - patch_file_path: Path where the patch file will be saved.
     """
-    with open(file_a_path, 'r') as file_a:
-        file_a_lines = [line.rstrip('\n') for line in file_a.readlines()]
+    with open(file_a_path, "r") as file_a:
+        file_a_lines = [line.rstrip("\n") for line in file_a.readlines()]
 
-    with open(file_b_path, 'r') as file_b:
-        file_b_lines = [line.rstrip('\n') for line in file_b.readlines()]
+    with open(file_b_path, "r") as file_b:
+        file_b_lines = [line.rstrip("\n") for line in file_b.readlines()]
 
-    diff = difflib.unified_diff(
-        file_a_lines, file_b_lines,
-        fromfile=file_a_path, tofile=file_b_path,
-        lineterm=''
-    )
+    diff = difflib.unified_diff(file_a_lines, file_b_lines, fromfile=file_a_path, tofile=file_b_path, lineterm="")
 
-    with open(patch_file_path, 'w') as patch_file:
+    with open(patch_file_path, "w") as patch_file:
         for line in diff:
-            patch_file.write(line + '\n')
+            patch_file.write(line + "\n")
 
 
 def find_first_indented_line(the_source):
@@ -287,19 +275,19 @@ def print_patch_with_color(patch_file_path):
     - patch_file_path: Path to the patch file containing changes.
     """
     # Open and read the patch file
-    with open(patch_file_path, 'r') as patch_file:
+    with open(patch_file_path, "r") as patch_file:
         patch_lines = patch_file.readlines()
 
     # Iterate through each line in the patch file
     for line in patch_lines:
-        if line.startswith('+'):
+        if line.startswith("+"):
             logging.info(Fore.GREEN + line.rstrip())  # Green for additions
-        elif line.startswith('-'):
-            logging.info(Fore.RED + line.rstrip())    # Red for deletions
-        elif line.startswith('@'):
-            logging.info(Fore.CYAN + line.rstrip())   # Cyan for headers
+        elif line.startswith("-"):
+            logging.info(Fore.RED + line.rstrip())  # Red for deletions
+        elif line.startswith("@"):
+            logging.info(Fore.CYAN + line.rstrip())  # Cyan for headers
         else:
-            logging.info(line.rstrip())               # Default color for context and other lines
+            logging.info(line.rstrip())  # Default color for context and other lines
 
 
 def apply_patch(original_file_path, patch_file_path, output_file_path):
@@ -311,12 +299,12 @@ def apply_patch(original_file_path, patch_file_path, output_file_path):
     - patch_file_path: Path to the patch file containing changes.
     - output_file_path: Path where the modified file will be written.
     """
-    cmd = ['patch', original_file_path, patch_file_path, '-o', output_file_path]
+    cmd = ["patch", original_file_path, patch_file_path, "-o", output_file_path]
     subprocess.run(cmd, check=True)
 
 
 def replace_function_in_file(file_path, modified_source):
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         file_source = file.read()
 
     entries, chunk_starts = split_top_level_entries(file_source)
@@ -330,61 +318,53 @@ def replace_function_in_file(file_path, modified_source):
         assert False, f"Function or class {what_to_replace} not found in file {file_path}"
 
     # Create a temporary file
-    with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp_file:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
         new_text = "\n".join(entries)
         tmp_file.write(new_text)
         tmp_file_path = tmp_file.name
 
     return tmp_file_path
-    
+
 
 def send_prompt_to_openai(client: OpenAI, messages: list[dict], max_tokens: int, model: str, verbose: bool):
     # Validate messages format
-    if not all(isinstance(message, dict) and 'role' in message and 'content' in message for message in messages):
+    if not all(isinstance(message, dict) and "role" in message and "content" in message for message in messages):
         raise ValueError("All messages must be dictionaries with 'role' and 'content' keys")
 
     if verbose:
         print(Fore.BLUE + "Sending the following prompt to ChatGPT:" + Style.RESET_ALL)
         for message in messages:
-            print(
-                Fore.LIGHTBLACK_EX
-                + f"{message['role'].title()}: {message['content']}"
-                + Style.RESET_ALL
-            )
+            print(Fore.LIGHTBLACK_EX + f"{message['role'].title()}: {message['content']}" + Style.RESET_ALL)
 
-    response = client.chat.completions.create(
-        model=model, messages=messages, max_tokens=max_tokens
-    )
+    response = client.chat.completions.create(model=model, messages=messages, max_tokens=max_tokens)
     return response
 
 
 def get_source_from_exception_and_callable(exception, callable_obj, allowed_paths):
     source_dict = {}
     seen_names = set()
-    
+
     tb = exception.__traceback__
 
     # Convert allowed paths to absolute paths
     allowed_paths = [os.path.abspath(path) for path in allowed_paths]
-
-    
 
     def add_exception_marker(source, lineno):
         if 0 <= lineno < len(source):
             source[lineno] = source[lineno].rstrip() + " # <------- NOTE(GPT): Exception here\n"
 
     def process_frame(frame, lineno, is_exception=True):
-        module_name = frame.f_globals.get('__name__')
+        module_name = frame.f_globals.get("__name__")
         file_path = os.path.abspath(frame.f_code.co_filename)
         if any(file_path.startswith(path) for path in allowed_paths):
             if module_name not in source_dict:
                 source_dict[module_name] = []
             try:
                 # Check if the frame is associated with a class method
-                class_name = frame.f_code.co_name.split('.')[0]
-                if class_name != '<module>':
+                class_name = frame.f_code.co_name.split(".")[0]
+                if class_name != "<module>":
                     # Retrieve the source code for the entire class
-                    class_obj = frame.f_locals.get('self').__class__
+                    class_obj = frame.f_locals.get("self").__class__
                     try:
                         source, _ = inspect.getsourcelines(class_obj)
                         # Find the start line number of the class
@@ -403,9 +383,9 @@ def get_source_from_exception_and_callable(exception, callable_obj, allowed_path
                     source, start_lineno = inspect.getsourcelines(frame)
                     if start_lineno <= lineno < start_lineno + len(source) and is_exception:
                         add_exception_marker(source, lineno - start_lineno)
-                if ''.join(source) not in source_dict[module_name]:
-                    source_dict[module_name].append(''.join(source).strip())
-                    seen_names.add(module_name + '.' + frame.f_code.co_name)
+                if "".join(source) not in source_dict[module_name]:
+                    source_dict[module_name].append("".join(source).strip())
+                    seen_names.add(module_name + "." + frame.f_code.co_name)
             except OSError:
                 pass
 
@@ -422,11 +402,11 @@ def get_source_from_exception_and_callable(exception, callable_obj, allowed_path
         source_dict[callable_module_name] = []
     try:
         callable_source, _ = inspect.getsourcelines(callable_obj)
-        callable_source_str = ''.join(callable_source).strip()
-        
-        global_name = callable_module_name + '.' + callable_obj.__name__
+        callable_source_str = "".join(callable_source).strip()
+
+        global_name = callable_module_name + "." + callable_obj.__name__
         logging.info(f"Global name: {global_name}")
-        if global_name not in seen_names:            
+        if global_name not in seen_names:
             # logging.info(f"Retrieving source for {callable_obj.__name__} : {callable_source_str}")
             # logging.info(f"Keys: {source_dict.keys()}")
             if callable_source_str not in source_dict[callable_module_name]:
@@ -435,7 +415,7 @@ def get_source_from_exception_and_callable(exception, callable_obj, allowed_path
             logging.info(f"Skipping {callable_obj.__name__} as it's already in the source_dict")
     except OSError:
         logging.error(f"Failed to retrieve source for {callable_obj.__name__}")
-    
+
     logging.error(f"Seen names: {seen_names}")
 
     return source_dict
@@ -443,7 +423,7 @@ def get_source_from_exception_and_callable(exception, callable_obj, allowed_path
 
 def create_llm_prompt(func, input_desc, buffer_content, e: Exception) -> tuple[str, dict[str, list[str]]]:
     """
-    Creates a prompt for the ChatGPT based on function details, input descriptions, 
+    Creates a prompt for the ChatGPT based on function details, input descriptions,
     execution logs, and the encountered exception.
 
     Args:
@@ -454,14 +434,14 @@ def create_llm_prompt(func, input_desc, buffer_content, e: Exception) -> tuple[s
 
     Returns:
         List[str]: A list of strings composing the complete ChatGPT prompt.
-    """    
+    """
     original_source = get_source_from_exception_and_callable(e, func, [os.path.dirname(func.__code__.co_filename)])
     combined_source = ""
     for k, v in original_source.items():
         logging.info(f"Original source for {k}")
         for item in v:
             combined_source += item + "\n\n\n"
-        
+
     chat_gpt_prompt = [
         f"Details for function {func.__name__} in file {func.__code__.co_filename}:",
         "----------------------------------------------------",
@@ -520,25 +500,25 @@ def remove_code_block_delimiters(text):
     :return: The text with the code block delimiters removed.
     """
     # This regex pattern matches ```python at the start of the string and ``` at the end of the string.
-    pattern = r'^```python\n|\n```$'
-    cleaned_text = re.sub(pattern, '', text, flags=re.MULTILINE)
+    pattern = r"^```python\n|\n```$"
+    cleaned_text = re.sub(pattern, "", text, flags=re.MULTILINE)
     return cleaned_text
 
 
 def verify_same(file_a_path, file_b_path):
     # Now make sure that both files are identical
-    with open(file_a_path, 'r') as new_file:
+    with open(file_a_path, "r") as new_file:
         updated_content_lines = new_file.readlines()
 
-    with open(file_b_path, 'r') as tmp_file:
+    with open(file_b_path, "r") as tmp_file:
         patched_content_lines = tmp_file.readlines()
 
     # Use difflib to find differences
-    differences = list(difflib.unified_diff(
-        updated_content_lines, patched_content_lines,
-        fromfile='updated_file', tofile='patched_file',
-        lineterm=''
-    ))
+    differences = list(
+        difflib.unified_diff(
+            updated_content_lines, patched_content_lines, fromfile="updated_file", tofile="patched_file", lineterm=""
+        )
+    )
 
     if differences:
         for line in differences[:10]:
