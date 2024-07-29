@@ -179,6 +179,7 @@ class NumberInput(float):
         display: str = "number",
         optional=False,
         hidden=False,
+        force_input=False
     ):
         if min is not None and default < min:
             raise ValueError(f"Value {default} is less than the minimum allowed {min}.")
@@ -194,6 +195,7 @@ class NumberInput(float):
         instance.round = round
         instance.optional = optional
         instance.hidden = hidden
+        instance.force_input = force_input
         return instance
 
     def to_dict(self):
@@ -204,6 +206,7 @@ class NumberInput(float):
             "max": self.max,
             "step": self.step,
             "round": self.round,
+            "forceInput": self.force_input,
         }
         metadata = {k: v for k, v in metadata.items() if v is not None}
         return metadata
@@ -712,6 +715,8 @@ def ComfyNode(
     debug: bool = False,
     color: str = None,
     bg_color: str = None,
+    height: int = None,
+    width: int = None,
 ):
     """
     Decorator function for creating ComfyUI nodes.
@@ -730,6 +735,8 @@ def ComfyNode(
         debug (bool): Indicates whether to enable debug logging for this node.
         color (str): The color of the node.
         bg_color (str): The background color of the node.
+        height (int): The default height of the node.
+        width (int): The default width of the node.
 
     Returns:
         A callable used that can be used with a function to create a ComfyUI node.
@@ -962,6 +969,8 @@ def ComfyNode(
             is_changed=wrapped_is_changed,
             color=color,
             bg_color=bg_color,
+            height=height,
+            width=width,
             debug=debug,
             source_location=source_location,
             easy_nodes_config=curr_config,
@@ -1136,6 +1145,8 @@ def _create_comfy_node(
     is_changed=None,
     color=None,
     bg_color=None,
+    height=None,
+    width=None,
     source_location=None,
     debug=False,
     easy_nodes_config: EasyNodesConfig=None,
@@ -1152,6 +1163,12 @@ def _create_comfy_node(
     if bg_color is not None:
         _ = hex_to_color(bg_color)  # Check that it's a valid color
         node_info["bgColor"] = bg_color
+
+    if height is not None:
+        node_info["height"] = height
+
+    if width is not None:
+        node_info["width"] = width
 
     if source_location is not None:
         node_info["sourceLocation"] = source_location
