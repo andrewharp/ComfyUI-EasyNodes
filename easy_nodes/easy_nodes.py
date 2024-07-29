@@ -198,7 +198,7 @@ class NumberInput(float):
         display: str = "number",
         optional=False,
         hidden=False,
-        force_input=False,
+        force_input=False
     ):
         if min is not None and default < min:
             raise ValueError(f"Value {default} is less than the minimum allowed {min}.")
