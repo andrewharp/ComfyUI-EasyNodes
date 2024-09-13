@@ -1,3 +1,4 @@
+import logging
 import os
 import json
 import re
@@ -46,7 +47,7 @@ def dict_has_key(data: dict, dict_key):
 
 
 def get_config_value(key, default = None):
-    # logging.info(f"Getting config value for key: {key} from {USER_CONFIG}")
+    logging.info(f"Getting config value for key: {key} from {USER_CONFIG}")
     return get_dict_value(USER_CONFIG, key, default)
   
 
