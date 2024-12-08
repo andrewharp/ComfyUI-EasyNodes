@@ -1,0 +1,21 @@
+{
+  "Annotated Example": "",
+  "Another Function": "Docstrings will be passed to the DESCRIPTION field on the node in ComfyUI.",
+  "Maybe Invert Image": "",
+  "MyFunClass": "",
+  "My Fun Class Node Processor": "",
+  "Create Random Image": "",
+  "Foobar Test": "This is a mega example node that shows off just about every ComfyNode feature.",
+  "My Method": "Descriptions can also be passed in manually. This operation increments a counter",
+  "Preview Example": "",
+  "My Class Method": "",
+  "Convert To Image": "",
+  "Text Repeater": "",
+  "Combine Lists": "",
+  "Add Images": "",
+  "Example Show Mask": "",
+  "Threshold Image": "Returns separate masks for values above and below the threshold value.",
+  "Example Mask Image": "Just your basic image masking node.",
+  "Convert To Mask": "",
+  "Mask Image With Image": ""
+}

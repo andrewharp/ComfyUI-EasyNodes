@@ -96,7 +96,7 @@ class ExampleClass:
 
 
 @ComfyNode(debug=True)
-def foobar_test(invert: bool,
+def foobar_test(invert: bool = False,
 
                 #  int_widget: int = NumberInput(0, 0, 4096, 64, "number"),
                 #  float_widget: float = NumberInput(1.0, 0, 1.0, 0.01, 0.001),
