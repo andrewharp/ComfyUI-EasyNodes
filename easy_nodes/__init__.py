@@ -12,6 +12,7 @@ from easy_nodes.comfy_types import (  # noqa: F401
 from easy_nodes.easy_nodes import (  # noqa: F401
     AnyType,
     AutoDescriptionMode,
+    BoolInput,
     CheckSeverityMode,
     Choice,
     ComfyNode,

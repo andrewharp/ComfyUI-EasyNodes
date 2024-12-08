@@ -247,6 +247,34 @@ class NumberInput(float):
         return f"{super().__repr__()} (Min: {self.min}, Max: {self.max})"
 
 
+class BoolInput:
+    def __init__(self, default: bool, force_input: bool = False, optional: bool = False, hidden: bool = False):
+        self.value = bool(default)
+        self.force_input = force_input
+        self.optional = optional
+        self.hidden = hidden
+
+    def to_dict(self):
+        return {
+            "default": self.value,
+            "forceInput": self.force_input,
+        }
+
+    def __repr__(self):
+        return f"BoolInput(value={self.value}, force_input={self.force_input}, optional={self.optional}, hidden={self.hidden})"
+
+    def __bool__(self):
+        return self.value
+
+    def __eq__(self, other):
+        if isinstance(other, BoolInput):
+            return self.value == other.value
+        return self.value == other
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
 _ANNOTATION_TO_COMFYUI_TYPE = {}
 _SHOULD_AUTOCONVERT = {"str": True}
 _DEFAULT_FORCE_INPUT = {}
@@ -1054,14 +1082,17 @@ def _annotate_input(
         return (default.choices,), False, False
     
     if debug:
+        logging.info(f"{annotation}")
         logging.info(f"{param_name} Default: {default} type: {type(default)} {isinstance(default, float)} {isinstance(default, NumberInput)}")
     
     if isinstance(default, str) and not isinstance(default, StringInput):
         default = StringInput(default)
+    elif isinstance(default, bool) and not isinstance(default, BoolInput):
+        default = BoolInput(default)
     elif isinstance(default, (int, float)) and not isinstance(default, NumberInput):
         default = NumberInput(default)
     
-    if isinstance(default, StringInput) or isinstance(default, NumberInput):
+    if isinstance(default, StringInput) or isinstance(default, NumberInput) or isinstance(default, BoolInput):
         return (type_name, default.to_dict()), default.optional, default.hidden
 
     metadata = {}
@@ -1073,6 +1104,9 @@ def _annotate_input(
         # If they didn't give it a default value at all, then forceInput so that the UI
         # doesn't end up giving them a default that they may not want.
         metadata["forceInput"] = True
+        
+        if annotation == bool:
+            metadata["default"] = False
     else:
         metadata["default"] = default
     
@@ -1391,7 +1425,7 @@ def _create_dynamic_setter(cls: type, debug=False) -> typing.Callable[..., T]:
             int: f"NumberInput({current_value})",
             float: f"NumberInput({current_value}, -1000000, 10000000, 0.0001)",
             str: f"StringInput('{current_value}')",
-            bool: f"{current_value}",
+            bool: f"BoolInput({current_value})",
         }
         return default_values.get(prop_type, "None")
 

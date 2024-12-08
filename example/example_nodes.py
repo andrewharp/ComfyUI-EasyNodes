@@ -14,6 +14,9 @@ import torch
 # Important! Make sure easy_nodes.initialize_easy_nodes is called before any nodes are defined.
 # See __init__.py for an example of how to do this.
 
+
+
+
 # This is the converted example node from ComfyUI's example_node.py.example file.
 @ComfyNode()
 def annotated_example(
@@ -43,6 +46,13 @@ def another_function(foo: float = 1.0):
 
 
 ComfyNode(is_changed=lambda: random.random())(another_function)
+
+
+@ComfyNode()
+def maybe_invert_image(image: ImageTensor, invert: bool):
+  if invert:
+    image = 1 - image
+  return image
 
 
 # You can register arbitrary classes to be used as inputs or outputs.
@@ -83,6 +93,30 @@ class ExampleClass:
         print(f"ExampleClass Hello World! {self.counter}")
         self.counter += 1
         return self.counter
+
+
+@ComfyNode(debug=True)
+def foobar_test(invert: bool,
+
+                #  int_widget: int = NumberInput(0, 0, 4096, 64, "number"),
+                #  float_widget: float = NumberInput(1.0, 0, 1.0, 0.01, 0.001),
+                #  float_widget_slider: float = NumberInput(1.0, 0, 10.0, 0.01, 0.001, display="slider"),
+                #  choice_widget: str = Choice(["foo", "bar", "baz"])
+                ) -> bool:
+    """This is a mega example node that shows off just about every ComfyNode feature."""
+    
+    # This image will be shown on the node in ComfyUI.
+    # easy_nodes.show_image(image)
+    
+    # # This text will be shown on the node in ComfyUI.
+    # easy_nodes.show_text(f"string_widget: {string_widget}")
+    # easy_nodes.show_text(f"bool_widget: {bool_widget}")
+    # easy_nodes.show_text(f"int_widget: {int_widget}")
+    # easy_nodes.show_text(f"float_widget: {float_widget}")
+    # easy_nodes.show_text(f"float_widget_slider: {float_widget_slider}")
+    # easy_nodes.show_text(f"choice_widget: {choice_widget}")
+    
+    return invert
 
 
 def my_is_changed_func():
@@ -162,7 +196,7 @@ def example_show_mask(mask: MaskTensor) -> MaskTensor:
 
 # Multiple outputs can be returned by annotating with tuple[].
 # Pass return_names if you want to give them labels in ComfyUI.
-@ComfyNode("Example category", color="#0066cc", bg_color="#ffcc00", return_names=["Below", "Above"])
+@ComfyNode(color="#0066cc", bg_color="#ffcc00", return_names=["Below", "Above"])
 def threshold_image(image: ImageTensor, threshold_value: float = NumberInput(0.5, 0, 1, 0.0001, display="slider")) -> tuple[MaskTensor, MaskTensor]:
     """Returns separate masks for values above and below the threshold value."""
     mask_below = torch.any(image < threshold_value, dim=-1).squeeze(-1)
