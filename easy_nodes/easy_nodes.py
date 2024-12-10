@@ -101,7 +101,7 @@ def initialize_easy_nodes(default_category: str = "EasyNodes",
     global _current_config
     if _current_config:
         assert _current_config.num_registered > 0, "Re-initializing EasyNodes, but no Nodes have been registered since last initialization. This may indicate an issue."        
-        assert _current_config.auto_register or not _current_config.NODE_CLASS_MAPPINGS, (
+        assert _current_config.auto_register or _current_config.get_node_mappings_called, (
             f"Auto-registration was turned off by previous initializer, but {len(_current_config.NODE_CLASS_MAPPINGS)} nodes were not picked up.")
 
     NODE_CLASS_MAPPINGS = {}
