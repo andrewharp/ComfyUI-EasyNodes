@@ -505,6 +505,8 @@ def _verify_values(config: EasyNodesConfig,
         def recursive_verify(verifier: callable, val: any):
             if isinstance(val, list):
                 for v in val:
+                    if v is None:
+                        continue
                     recursive_verify(verifier, v)
             else:
                 verifier(val)
